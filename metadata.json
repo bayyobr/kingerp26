@@ -1,0 +1,5 @@
+{
+  "name": "King Carcaças ERP",
+  "description": "A comprehensive ERP system for device repair shops, featuring service order management, automated technical diagnostics via Gemini, and business analytics.",
+  "requestFramePermissions": []
+}
