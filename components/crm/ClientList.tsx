@@ -101,6 +101,18 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient }) => {
     loadClients();
   };
 
+  const handleDeleteClient = async (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation();
+    if (window.confirm(`Tem certeza que deseja excluir o cliente ${name}? Esta ação não pode ser desfeita.`)) {
+      const success = await clientService.deleteClient(id);
+      if (success) {
+        loadClients();
+      } else {
+        alert('Erro ao excluir cliente. Verifique se ele possui vínculos (vendas ou ordens).');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
@@ -220,6 +232,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient }) => {
                 <th className="p-4 font-semibold text-center">Frequência</th>
                 <th className="p-4 font-semibold text-right">Cadastrado em</th>
                 <th className="p-4 font-semibold text-right">LTV (Gasto Total)</th>
+                <th className="p-4 font-semibold w-20 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="text-sm">
@@ -265,6 +278,15 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient }) => {
                     </td>
                     <td className="p-4 text-right font-semibold text-emerald-400">
                       R$ {client.stats?.totalSpent.toFixed(2)}
+                    </td>
+                    <td className="p-4 text-center">
+                       <button
+                         onClick={(e) => handleDeleteClient(e, client.id, client.nome)}
+                         className="p-2 text-slate-500 hover:text-rose-500 transition-colors"
+                         title="Excluir Cliente"
+                       >
+                         <span className="material-symbols-outlined text-[20px]">delete</span>
+                       </button>
                     </td>
                   </tr>
                 ))

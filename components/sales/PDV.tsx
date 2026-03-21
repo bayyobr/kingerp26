@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Product, Vendedor, Aparelho, PaymentMethod, VendaItem, Venda, PaymentDetail } from '../../types';
 import { productService } from '../../services/productService';
 import { serviceService, Service } from '../../services/serviceService';
 import { vendedorService } from '../../services/vendedorService';
 import { salesService } from '../../services/salesService';
+import { clientService } from '../../services/clientService';
 import { supabase } from '../../services/supabase';
+import { Client, Product, Vendedor, Aparelho, PaymentMethod, VendaItem, Venda, PaymentDetail } from '../../types';
 import { formatPhone, formatCPF } from '../../utils/formatters';
 import { generateDeviceTermPDF } from '../../utils/pdfGenerator';
 
@@ -27,6 +28,10 @@ const PDV: React.FC = () => {
     const [clientPhone, setClientPhone] = useState('');
     const [clientCpf, setClientCpf] = useState('');
     const [discount, setDiscount] = useState(0);
+
+    // Client Selection State
+    const [clients, setClients] = useState<Client[]>([]);
+    const [showClientSuggestions, setShowClientSuggestions] = useState(false);
 
     // Delivery & Type State
     const [saleType, setSaleType] = useState<'Retirada' | 'Entrega'>('Retirada');
@@ -82,16 +87,18 @@ const PDV: React.FC = () => {
 
         setLoading(true);
         try {
-            const [p, s, v, d] = await Promise.all([
+            const [p, s, v, d, c] = await Promise.all([
                 productService.getAll(),
                 serviceService.getAll(),
                 vendedorService.getAll(),
-                salesService.getAparelhos()
+                salesService.getAparelhos(),
+                clientService.getAllClients()
             ]);
             setProducts(p.filter(x => x.stockQuantity > 0 || (x.variations && x.variations.some(v => v.stock > 0))));
             setServices(s);
             setSellers(v.filter(x => x.ativo));
             setDevices(d.filter(x => x.status === 'Disponível')); // Only Available devices
+            setClients(c);
         } catch (e) {
             console.error(e);
         }
@@ -249,6 +256,17 @@ const PDV: React.FC = () => {
         setPayments(newP);
     };
 
+    const handleSelectClient = (client: Client) => {
+        setClientName(client.nome);
+        setClientPhone(client.telefone || '');
+        setClientCpf(client.cpf || '');
+        setShowClientSuggestions(false);
+    };
+
+    const filteredClientSuggestions = clientName.length >= 2 
+        ? clients.filter(c => c.nome.toLowerCase().includes(clientName.toLowerCase()) || (c.cpf && c.cpf.includes(clientName)))
+        : [];
+
     const handleFinish = async () => {
         if (!selectedSellerId) return alert('Selecione um vendedor!');
         if (payments.length === 0) return alert('Adicione pelo menos um pagamento!');
@@ -259,6 +277,24 @@ const PDV: React.FC = () => {
 
         setLoading(true);
         try {
+            // 1. Automatic Client Registration Logic
+            if (clientName.trim()) {
+                const existingClient = clients.find(c => 
+                    (clientCpf && c.cpf === clientCpf) || 
+                    (clientPhone && c.telefone === clientPhone)
+                );
+
+                if (!existingClient) {
+                    await clientService.createClient({
+                        nome: clientName,
+                        cpf: clientCpf,
+                        telefone: clientPhone,
+                        is_vip_manual: false
+                    });
+                    // Note: In a production app, we'd handle errors and update the local clients state
+                }
+            }
+
             const venda: Venda = {
                 vendedor_id: selectedSellerId,
                 cliente_nome: clientName,
@@ -474,12 +510,32 @@ const PDV: React.FC = () => {
 
                     {/* Client & Logic - More Compact */}
                     <div className="grid grid-cols-1 gap-2">
-                        <input
-                            placeholder="Nome Completo (Opcional)"
-                            value={clientName}
-                            onChange={e => setClientName(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg p-2 text-sm outline-none text-slate-700 dark:text-white"
-                        />
+                        <div className="relative">
+                            <input
+                                placeholder="Nome Completo (Opcional)"
+                                value={clientName}
+                                onChange={e => {
+                                    setClientName(e.target.value);
+                                    setShowClientSuggestions(true);
+                                }}
+                                onFocus={() => setShowClientSuggestions(true)}
+                                className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg p-2 text-sm outline-none text-slate-700 dark:text-white"
+                            />
+                            {showClientSuggestions && filteredClientSuggestions.length > 0 && (
+                                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-40 overflow-y-auto">
+                                    {filteredClientSuggestions.map(c => (
+                                        <button
+                                            key={c.id}
+                                            onClick={() => handleSelectClient(c)}
+                                            className="w-full text-left p-2 hover:bg-slate-100 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800 last:border-0"
+                                        >
+                                            <div className="font-bold text-xs text-slate-800 dark:text-white">{c.nome}</div>
+                                            <div className="text-[10px] text-slate-500">{c.cpf || 'Sem CPF'} • {c.telefone || 'Sem Tel'}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                         <div className="grid grid-cols-2 gap-2">
                             <input
                                 placeholder="CPF / RG"

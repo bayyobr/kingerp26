@@ -42,6 +42,17 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client, onBack }) => {
     loadProfile();
   };
 
+  const handleDelete = async () => {
+    if (window.confirm(`Tem certeza que deseja excluir o cliente ${client.nome}? Esta ação não pode ser desfeita.`)) {
+      const success = await clientService.deleteClient(client.id);
+      if (success) {
+        onBack();
+      } else {
+        alert('Erro ao excluir cliente. Verifique se ele possui vínculos (vendas ou ordens).');
+      }
+    }
+  };
+
   if (loading || !stats) {
      return (
        <div className="flex justify-center items-center h-full">
@@ -82,6 +93,14 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client, onBack }) => {
             {stats.isVip ? 'workspace_premium' : 'star_border'}
           </span>
           {stats.isVip ? 'Cliente VIP' : 'Tornar VIP'}
+        </button>
+
+        <button 
+          onClick={handleDelete}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-rose-500 hover:bg-rose-500/10 transition-colors"
+        >
+          <span className="material-symbols-outlined text-[20px]">delete</span>
+          Excluir Cliente
         </button>
       </div>
 
