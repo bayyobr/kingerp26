@@ -33,6 +33,7 @@ const AppContent: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAppInitialized, setIsAppInitialized] = useState(false); // Added
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -48,12 +49,18 @@ const AppContent: React.FC = () => {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session) {
-        loadOrders();
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          loadOrders();
+        } else {
+          // Mark as initialized even on refreshes if we already have session
+          setIsAppInitialized(true);
+        }
       } else {
         setLoading(false);
+        setIsAppInitialized(true);
         setOrders([]);
       }
     });
@@ -62,14 +69,16 @@ const AppContent: React.FC = () => {
   }, []);
 
   const loadOrders = async (startDate?: string, endDate?: string) => {
+    const isInitial = !isAppInitialized;
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
       const data = await orderService.getAll(startDate, endDate);
       setOrders(data);
     } catch (error) {
       console.error('Failed to load orders', error);
-      alert('Erro ao carregar ordens de serviço. Verifique a conexão.');
+      if (isInitial) alert('Erro ao carregar ordens de serviço. Verifique a conexão.');
     } finally {
+      setIsAppInitialized(true);
       setLoading(false);
     }
   };
@@ -104,7 +113,7 @@ const AppContent: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (loading && !isAppInitialized) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background-light dark:bg-background-dark text-slate-500">
         <div className="flex flex-col items-center gap-2">

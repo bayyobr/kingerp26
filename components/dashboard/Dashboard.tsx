@@ -117,6 +117,11 @@ const Dashboard: React.FC = () => {
 
     const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
+    const calculateVariation = (current: number, previousValue: number) => {
+        if (!previousValue) return current > 0 ? 100 : 0;
+        return ((current - previousValue) / previousValue) * 100;
+    };
+
     return (
         <div className="p-4 md:p-8 flex flex-col gap-8 max-w-[1600px] mx-auto min-h-screen bg-transparent">
             
@@ -191,7 +196,7 @@ const Dashboard: React.FC = () => {
                 <KPICard 
                     title="Faturamento" 
                     value={`R$ ${summary?.revenueTotal.toLocaleString() || '0'}`} 
-                    variation={summary ? ((summary.revenueTotal - summary.prevRevenueTotal) / (summary.prevRevenueTotal || 1)) * 100 : 0}
+                    variation={summary ? calculateVariation(summary.revenueTotal, summary.prevRevenueTotal) : 0}
                     sparklineData={summary?.sparklineData || []}
                     icon="payments"
                     loading={loading && !summary}
@@ -199,7 +204,7 @@ const Dashboard: React.FC = () => {
                 <KPICard 
                     title="Pedidos" 
                     value={summary?.salesCount || 0} 
-                    variation={summary ? ((summary.salesCount - summary.prevSalesCount) / (summary.prevSalesCount || 1)) * 100 : 0}
+                    variation={summary ? calculateVariation(summary.salesCount, summary.prevSalesCount) : 0}
                     sparklineData={[4, 6, 5, 8, 7, 9, 10]} // Static example for missing data points
                     icon="shopping_basket"
                     loading={loading && !summary}
@@ -207,7 +212,7 @@ const Dashboard: React.FC = () => {
                 <KPICard 
                     title="Ticket Médio" 
                     value={`R$ ${summary?.avgTicket.toFixed(2) || '0'}`} 
-                    variation={summary ? ((summary.avgTicket - summary.prevAvgTicket) / (summary.prevAvgTicket || 1)) * 100 : 0}
+                    variation={summary ? calculateVariation(summary.avgTicket, summary.prevAvgTicket) : 0}
                     sparklineData={[150, 160, 145, 170, 155, 165, 160]}
                     icon="receipt_long"
                     loading={loading && !summary}
@@ -215,7 +220,7 @@ const Dashboard: React.FC = () => {
                 <KPICard 
                     title="Lucro Est." 
                     value={`R$ ${summary?.profitEstimated.toLocaleString() || '0'}`} 
-                    variation={12.4}
+                    variation={summary ? calculateVariation(summary.profitEstimated, summary.prevProfitEstimated) : 0}
                     sparklineData={[10, 12, 11, 14, 13, 15, 16]}
                     icon="analytics"
                     loading={loading && !summary}
@@ -223,7 +228,7 @@ const Dashboard: React.FC = () => {
                 <KPICard 
                     title="Novos Clientes" 
                     value={summary?.newClients || 0} 
-                    variation={summary ? ((summary.newClients - summary.prevNewClients) / (summary.prevNewClients || 1)) * 100 : 0}
+                    variation={summary ? calculateVariation(summary.newClients, summary.prevNewClients) : 0}
                     sparklineData={[2, 3, 2, 5, 4, 6, 5]}
                     icon="person_add"
                     loading={loading && !summary}

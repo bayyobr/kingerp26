@@ -47,7 +47,41 @@ const PDV: React.FC = () => {
     useEffect(() => {
         loadData();
         checkEditMode();
+        loadPDVDraft();
     }, []);
+
+    const loadPDVDraft = () => {
+        const saved = localStorage.getItem('pdv_draft');
+        if (saved) {
+            try {
+                const draft = JSON.parse(saved);
+                if (draft.cart?.length) setCart(draft.cart);
+                if (draft.clientName) setClientName(draft.clientName);
+                if (draft.clientPhone) setClientPhone(draft.clientPhone);
+                if (draft.clientCpf) setClientCpf(draft.clientCpf);
+                if (draft.discount) setDiscount(draft.discount);
+                if (draft.selectedSellerId) setSelectedSellerId(draft.selectedSellerId);
+                if (draft.saleType) setSaleType(draft.saleType);
+                if (draft.deliveryFee) setDeliveryFee(draft.deliveryFee);
+            } catch (e) {
+                console.error('Erro ao carregar rascunho do PDV', e);
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (cart.length > 0 || clientName) {
+            const draft = {
+                cart, clientName, clientPhone, clientCpf,
+                discount, selectedSellerId, saleType, deliveryFee
+            };
+            localStorage.setItem('pdv_draft', JSON.stringify(draft));
+        }
+    }, [cart, clientName, clientPhone, clientCpf, discount, selectedSellerId, saleType, deliveryFee]);
+
+    const clearPDVDraft = () => {
+        localStorage.removeItem('pdv_draft');
+    };
 
     const checkEditMode = async () => {
         const hash = window.location.hash;
@@ -335,6 +369,7 @@ const PDV: React.FC = () => {
             setCurrentMethod('');
             setSaleType('Retirada');
             setDeliveryFee(0);
+            clearPDVDraft();
             loadData(); // Refresh stock
         } catch (error: any) {
             console.error('Erro detalhado:', error);

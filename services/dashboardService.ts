@@ -14,6 +14,7 @@ export interface DashboardSummary {
     prevSalesCount: number;
     prevAvgTicket: number;
     prevNewClients: number;
+    prevProfitEstimated: number; // Added
     
     // Sparkline (last 7 points)
     sparklineData: number[];
@@ -112,14 +113,38 @@ export const dashboardService = {
         const prevStartStr = prevStart.toISOString().split('T')[0];
         const prevEndStr = prevEnd.toISOString().split('T')[0];
 
-        // Fetch Current Period
+        const [current, previous, sparklineData] = await Promise.all([
+            this.getPeriodMetrics(startDate, endDate),
+            this.getPeriodMetrics(prevStartStr, prevEndStr),
+            this.getSparklinePoints(startDate, endDate)
+        ]);
+
+        return {
+            revenueTotal: current.revenueTotal,
+            revenueSales: current.revenueSales,
+            revenueServices: current.revenueServices,
+            salesCount: current.salesCount,
+            avgTicket: current.avgTicket,
+            newClients: current.newClients,
+            profitEstimated: current.profitEstimated,
+
+            prevRevenueTotal: previous.revenueTotal,
+            prevSalesCount: previous.salesCount,
+            prevAvgTicket: previous.avgTicket,
+            prevNewClients: previous.newClients,
+            prevProfitEstimated: previous.profitEstimated,
+
+            sparklineData
+        };
+    },
+
+    async getPeriodMetrics(startDate: string, endDate: string) {
         const [sales, services, clients] = await Promise.all([
             supabase.from('vendas').select('id, total, items:vendas_itens(tipo_item, item_id, quantidade, subtotal)').gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
             supabase.from('service_orders').select('price_total, price_parts').eq('status', 'Concluído').gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
             supabase.from('clients').select('id').gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59')
         ]);
 
-        // Calculate Costs from Sales Items
         let totalSalesCost = 0;
         if (sales.data && sales.data.length > 0) {
             const allItems = sales.data.flatMap((s: any) => s.items || []);
@@ -144,29 +169,10 @@ export const dashboardService = {
         }
 
         const totalServicePartsCost = services.data?.reduce((acc, curr) => acc + Number(curr.price_parts || 0), 0) || 0;
-
-
-        // Fetch Previous Period
-        const [prevSales, prevServices, prevClients] = await Promise.all([
-            supabase.from('vendas').select('total').gte('created_at', prevStartStr).lte('created_at', prevEndStr + 'T23:59:59'),
-            supabase.from('service_orders').select('price_total').eq('status', 'Concluído').gte('created_at', prevStartStr).lte('created_at', prevEndStr + 'T23:59:59'),
-            supabase.from('clients').select('id').gte('created_at', prevStartStr).lte('created_at', prevEndStr + 'T23:59:59')
-        ]);
-
-        const calcTotal = (data: any[], key: string) => data?.reduce((acc, curr) => acc + Number(curr[key] || 0), 0) || 0;
-
-        const revSales = calcTotal(sales.data || [], 'total');
-        const revServices = calcTotal(services.data || [], 'price_total');
+        const revSales = sales.data?.reduce((acc, curr) => acc + Number(curr.total || 0), 0) || 0;
+        const revServices = services.data?.reduce((acc, curr) => acc + Number(curr.price_total || 0), 0) || 0;
         const revenueTotal = revSales + revServices;
         const salesCount = (sales.data?.length || 0) + (services.data?.length || 0);
-        
-        const prevRevSales = calcTotal(prevSales.data || [], 'total');
-        const prevRevServices = calcTotal(prevServices.data || [], 'price_total');
-        const prevRevenueTotal = prevRevSales + prevRevServices;
-        const prevSalesCount = (prevSales.data?.length || 0) + (prevServices.data?.length || 0);
-
-        // Sparkline Data (Splitting period into 7 buckets)
-        const sparklineData = await this.getSparklinePoints(startDate, endDate);
 
         return {
             revenueTotal,
@@ -175,12 +181,7 @@ export const dashboardService = {
             salesCount,
             avgTicket: salesCount > 0 ? revenueTotal / salesCount : 0,
             newClients: clients.data?.length || 0,
-            profitEstimated: revenueTotal - totalSalesCost - totalServicePartsCost,
-            prevRevenueTotal,
-            prevSalesCount,
-            prevAvgTicket: prevSalesCount > 0 ? prevRevenueTotal / prevSalesCount : 0,
-            prevNewClients: prevClients.data?.length || 0,
-            sparklineData
+            profitEstimated: revenueTotal - totalSalesCost - totalServicePartsCost
         };
     },
 

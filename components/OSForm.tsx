@@ -9,6 +9,7 @@ import { serviceService, Service } from '../services/serviceService';
 import { Product, Vendedor } from '../types';
 import { formatCPF, formatPhone } from '../utils/formatters';
 import { vendedorService } from '../services/vendedorService';
+import { useFormPersistence } from '../hooks/useFormPersistence';
 
 interface OSFormProps {
   orders?: ServiceOrder[];
@@ -144,6 +145,36 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
     priceTotal: 0,
   });
 
+  const { draftRequest, saveDraft, clearDraft } = useFormPersistence<ServiceOrder>(
+    'os_form',
+    {
+        id: '', osNumber: '', status: OSStatus.ABERTO, entryDate: '', expectedExitDate: '',
+        client: { name: '', cpf: '', phone: '' },
+        device: { brand: 'Apple', model: '', color: '', imei: '', password: '' },
+        problemReported: '', technicalDiagnosis: '', services: '', items: '',
+        checklist: { ...INITIAL_CHECKLIST }, warrantyDays: 90, priceParts: 0, priceTotal: 0
+    },
+    !id
+  );
+
+  // Restore draft if available
+  useEffect(() => {
+    if (draftRequest && !id) {
+        setFormData(prev => ({
+            ...draftRequest,
+            id: prev.id, // Keep newly generated ID
+            osNumber: prev.osNumber // Keep newly generated OS number
+        }));
+    }
+  }, [draftRequest, id]);
+
+  // Save draft on changes
+  useEffect(() => {
+    if (!id && (formData.client.name || formData.problemReported)) {
+        saveDraft(formData);
+    }
+  }, [formData, id, saveDraft]);
+
   const [quantity, setQuantity] = useState(1);
   const [serviceQuantity, setServiceQuantity] = useState(1);
   const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
@@ -236,6 +267,7 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
     if (!formData.technicianId) return alert("Selecione um técnico responsável!");
 
     onSave(formData);
+    clearDraft();
     navigate('/vendas/ordens');
   };
 
@@ -754,6 +786,7 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
                   return;
                 }
                 onSave(formData);
+                clearDraft();
                 generatePDF(formData);
                 navigate('/ordens');
               }}
