@@ -3,12 +3,14 @@ import { Product, PurchaseOrder, PurchaseOrderProduct, PurchaseOrderPackage } fr
 import { productService } from '../../services/productService';
 import { stockService } from '../../services/stockService';
 import { useNavigate } from 'react-router-dom';
+import { useExchangeRate } from '../../hooks/useExchangeRate';
 
 const StockEntryForm: React.FC = () => {
   const navigate = useNavigate();
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { rate, loading: rateLoading, refresh: refreshRate } = useExchangeRate();
 
   // Header State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -31,6 +33,12 @@ const StockEntryForm: React.FC = () => {
   useEffect(() => {
     loadDbProducts();
   }, []);
+
+  useEffect(() => {
+    if (rate && !usdQuote) {
+      setUsdQuote(rate);
+    }
+  }, [rate, usdQuote]);
 
   useEffect(() => {
     const count = Number(packageCount) || 0;
@@ -203,16 +211,29 @@ const StockEntryForm: React.FC = () => {
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-slate-300">Cotação do Dólar (R$) *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={usdQuote}
-                onChange={e => setUsdQuote(e.target.value ? Number(e.target.value) : '')}
-                placeholder="Ex: 5.20"
-                className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-4 py-2.5 rounded-lg focus:outline-none focus:border-blue-500"
-                required
-              />
+              <div className="relative group">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={usdQuote}
+                  onChange={e => setUsdQuote(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="Ex: 5.20"
+                  className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-4 py-2.5 rounded-lg focus:outline-none focus:border-blue-500 pr-12"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={refreshRate}
+                  disabled={rateLoading}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-500 hover:text-blue-400 disabled:opacity-50 transition-colors"
+                  title="Atualizar Cotação"
+                >
+                  <span className={`material-symbols-outlined text-[18px] ${rateLoading ? 'animate-spin' : ''}`}>
+                    sync
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

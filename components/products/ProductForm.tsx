@@ -1,48 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Product, Variation } from '../../types';
 import { productService } from '../../services/productService';
+import NumberInput from '../common/NumberInput';
+import { useFormPersistence } from '../../hooks/useFormPersistence';
 
 // Moved outside to prevent re-render focus loss
-const NumberInput = ({ value, onChange, disabled = false, className = '', placeholder = '' }: any) => {
-    const [localValue, setLocalValue] = useState(value === 0 ? '' : value.toString());
-
-    useEffect(() => {
-        if (value !== (localValue === '' ? 0 : parseFloat(localValue))) {
-            setLocalValue(value === 0 ? '' : value.toString());
-        }
-    }, [value]);
-
-    const handleChange = (e: any) => {
-        const val = e.target.value;
-        setLocalValue(val);
-        if (val === '') {
-            onChange(0);
-        } else {
-            if (!isNaN(parseFloat(val))) {
-                onChange(parseFloat(val));
-            }
-        }
-    };
-
-    return (
-        <input
-            type="number"
-            value={localValue}
-            onChange={handleChange}
-            disabled={disabled}
-            className={className}
-            placeholder={placeholder}
-        />
-    );
-};
 
 const ProductForm: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const location = useLocation();
     const [loading, setLoading] = useState(false);
-
-    const [formData, setFormData] = useState<Omit<Product, 'id'>>({
+    const initialFormData: Omit<Product, 'id'> = {
         name: '',
         sku: '',
         description: '',
@@ -54,7 +24,30 @@ const ProductForm: React.FC = () => {
         imageUrl: '',
         minStock: 5,
         variations: []
-    });
+    };
+
+    const [formData, setFormData] = useState<Omit<Product, 'id'>>(initialFormData);
+
+    const { draftRequest, saveDraft, clearDraft, setDraftRequest } = useFormPersistence('product', initialFormData, !id);
+
+    // Persistence Effect
+    useEffect(() => {
+        if (!id && formData.name) {
+            saveDraft(formData);
+        }
+    }, [formData, id, saveDraft]);
+
+    // BeforeUnload Protection
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (!id && formData.name) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [id, formData.name]);
 
     const [newVariation, setNewVariation] = useState<{ name: string, stock: string, sku: string, price: string }>({ name: '', stock: '', sku: '', price: '' });
 
@@ -66,8 +59,16 @@ const ProductForm: React.FC = () => {
     useEffect(() => {
         if (id) {
             loadProduct(id);
+        } else if (location.state?.cloneFrom) {
+            const cloned = location.state.cloneFrom as Product;
+            const { id: _id, sku: _sku, ...rest } = cloned;
+            setFormData({
+                ...rest,
+                sku: '', // Force a new SKU generation or manual entry
+                name: `${rest.name} (Cópia)`
+            });
         }
-    }, [id]);
+    }, [id, location.state]);
 
     // Recalculate total stock when variations change
     useEffect(() => {
@@ -157,6 +158,7 @@ const ProductForm: React.FC = () => {
                 await productService.update({ ...formData, id });
             } else {
                 await productService.create(formData);
+                clearDraft(); // Clear draft on success
             }
             navigate('/cadastro/produtos');
         } catch (error) {
@@ -168,6 +170,36 @@ const ProductForm: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto p-6 flex flex-col gap-6">
+            {/* Draft Alert */}
+            {draftRequest && !id && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 p-4 rounded-xl flex items-center justify-between animate-in slide-in-from-top-4 duration-300">
+                    <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-amber-600">history</span>
+                        <div>
+                            <p className="text-sm font-bold text-amber-900 dark:text-amber-100">Rascunho Encontrado</p>
+                            <p className="text-xs text-amber-700 dark:text-amber-300">Você tem dados de um produto que não foram salvos: <span className="font-bold">{draftRequest.name}</span></p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => clearDraft()}
+                            className="px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-800/50 rounded-lg transition-colors"
+                        >
+                            Descartar
+                        </button>
+                        <button 
+                            onClick={() => {
+                                setFormData(draftRequest);
+                                setDraftRequest(null);
+                            }}
+                            className="px-4 py-1.5 text-xs bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition-all shadow-md shadow-amber-600/20"
+                        >
+                            Restaurar
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -178,7 +210,7 @@ const ProductForm: React.FC = () => {
                 <div className="flex gap-3">
                     <button
                         type="button"
-                        onClick={() => navigate('/cadastro/produtos')}
+                        onClick={() => navigate(-1)}
                         className="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-border-dark text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-darker transition-colors font-medium"
                     >
                         Cancelar
@@ -456,7 +488,7 @@ const ProductForm: React.FC = () => {
                 <div className="flex justify-end pt-6 border-t border-slate-200 dark:border-slate-800 mt-6 sticky bottom-0 bg-background-light dark:bg-background-dark p-4 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
                     <button
                         type="button"
-                        onClick={() => navigate('/cadastro/produtos')}
+                        onClick={() => navigate(-1)}
                         className="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-border-dark text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-darker transition-colors font-medium mr-3"
                     >
                         Cancelar

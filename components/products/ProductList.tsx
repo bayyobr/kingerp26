@@ -20,6 +20,17 @@ const ProductList: React.FC = () => {
     const [filterColor, setFilterColor] = useState('');
     const [sortBy, setSortBy] = useState<'name' | 'most_sold' | 'least_sold'>('name');
 
+    // Quick Adjust State
+    const [adjustmentData, setAdjustmentData] = useState<{
+        productId: string;
+        productName: string;
+        variationId?: string;
+        variationName?: string;
+        currentStock: number;
+    } | null>(null);
+    const [newStock, setNewStock] = useState(0);
+    const [adjustLoading, setAdjustLoading] = useState(false);
+
     useEffect(() => {
         loadProducts();
     }, []);
@@ -63,6 +74,36 @@ const ProductList: React.FC = () => {
         } catch (error) {
             alert('Erro ao excluir.');
         }
+    };
+
+    const handleAdjustStock = async () => {
+        if (!adjustmentData) return;
+        try {
+            setAdjustLoading(true);
+            if (adjustmentData.variationId) {
+                await productService.updateVariationStock(adjustmentData.productId, adjustmentData.variationId, newStock);
+            } else {
+                await productService.updateProductStock(adjustmentData.productId, newStock);
+            }
+            await loadProducts();
+            setAdjustmentData(null);
+        } catch (error) {
+            console.error('Error adjusting stock', error);
+            alert('Erro ao ajustar estoque.');
+        } finally {
+            setAdjustLoading(false);
+        }
+    };
+
+    const openAdjust = (product: Product, variation?: any) => {
+        setAdjustmentData({
+            productId: product.id,
+            productName: product.name,
+            variationId: variation?.id,
+            variationName: variation?.name,
+            currentStock: variation ? variation.stock : product.stockQuantity
+        });
+        setNewStock(variation ? variation.stock : product.stockQuantity);
     };
 
     const generateReport = () => {
@@ -328,18 +369,50 @@ const ProductList: React.FC = () => {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${product.stockQuantity <= (product.minStock || 0) ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                                            {product.stockQuantity} un
-                                        </span>
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold w-max ${product.stockQuantity <= (product.minStock || 0) ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                                                    {product.stockQuantity} un
+                                                </span>
+                                                {product.type !== 'variation' && (
+                                                    <button onClick={() => openAdjust(product)} className="text-slate-400 hover:text-primary transition-colors" title="Ajustar Estoque">
+                                                        <span className="material-symbols-outlined text-[16px]">edit_square</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {product.type === 'variation' && product.variations && product.variations.length > 0 && (
+                                                <div className="flex flex-col gap-1 mt-1 pl-1 border-l-2 border-slate-200 dark:border-slate-700">
+                                                    {product.variations.map(v => (
+                                                        <div key={v.id} title={v.name} className="flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/10 px-1.5 py-0.5 rounded leading-tight">
+                                                            <span className="truncate max-w-[80px]">{v.name}</span>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="font-bold shrink-0">{v.stock}</span>
+                                                                <button onClick={() => openAdjust(product, v)} className="hover:text-primary transition-colors">
+                                                                    <span className="material-symbols-outlined text-[14px]">edit_square</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-500 font-mono text-sm">R$ {product.costPrice.toFixed(2)}</td>
                                     <td className="px-6 py-4 text-slate-900 dark:text-white font-bold font-mono">R$ {product.salePrice.toFixed(2)}</td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2">
-                                            <Link to={`/cadastro/produtos/editar/${product.id}`} className="p-2 text-slate-500 hover:text-primary transition-colors hover:bg-primary/10 rounded-lg">
+                                            <Link 
+                                                to="/cadastro/produtos/novo" 
+                                                state={{ cloneFrom: product }}
+                                                className="p-2 text-slate-500 hover:text-amber-500 transition-colors hover:bg-amber-50 dark:hover:bg-amber-900/10 rounded-lg"
+                                                title="Clonar Produto"
+                                            >
+                                                <span className="material-symbols-outlined text-[20px]">content_copy</span>
+                                            </Link>
+                                            <Link to={`/cadastro/produtos/editar/${product.id}`} className="p-2 text-slate-500 hover:text-primary transition-colors hover:bg-primary/10 rounded-lg" title="Editar">
                                                 <span className="material-symbols-outlined text-[20px]">edit</span>
                                             </Link>
-                                            <button onClick={() => handleDelete(product.id)} className="p-2 text-slate-500 hover:text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                                            <button onClick={() => handleDelete(product.id)} className="p-2 text-slate-500 hover:text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg" title="Excluir">
                                                 <span className="material-symbols-outlined text-[20px]">delete</span>
                                             </button>
                                         </div>
@@ -358,6 +431,91 @@ const ProductList: React.FC = () => {
                     </table>
                 </div>
             </div>
+            {/* Adjustment Modal */}
+            {adjustmentData && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-2xl border border-slate-200 dark:border-border-dark w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="p-6">
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Ajustar Estoque</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                                {adjustmentData.productName} 
+                                {adjustmentData.variationName && <span className="text-primary font-bold"> - {adjustmentData.variationName}</span>}
+                            </p>
+
+                            <div className="flex flex-col gap-4">
+                                <div className="p-4 bg-slate-50 dark:bg-surface-darker rounded-xl border border-slate-100 dark:border-slate-800">
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Estoque atual</label>
+                                    <div className="text-2xl font-black text-slate-900 dark:text-white">
+                                        {adjustmentData.currentStock} <span className="text-sm font-normal text-slate-400">unidades</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Novo estoque</label>
+                                    <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={() => setNewStock(Math.max(0, newStock - 1))}
+                                            className="w-12 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined">remove</span>
+                                        </button>
+                                        <input 
+                                            type="number"
+                                            value={newStock}
+                                            onChange={e => setNewStock(parseInt(e.target.value) || 0)}
+                                            className="flex-1 h-12 bg-white dark:bg-surface-darker border-2 border-slate-200 dark:border-border-dark rounded-xl px-4 text-center text-xl font-bold text-slate-900 dark:text-white focus:border-primary focus:outline-none transition-colors shadow-inner"
+                                        />
+                                        <button 
+                                            onClick={() => setNewStock(newStock + 1)}
+                                            className="w-12 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined">add</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                    <button 
+                                        onClick={() => setNewStock(adjustmentData.currentStock)}
+                                        className="py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors bg-slate-100 dark:bg-slate-800 rounded-lg"
+                                    >
+                                        RESETE
+                                    </button>
+                                    <button 
+                                        onClick={() => setNewStock(newStock + 10)}
+                                        className="py-2 text-xs font-bold text-primary hover:text-primary-dark transition-colors bg-primary/10 rounded-lg"
+                                    >
+                                        +10 UN
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 flex gap-3 border-t border-slate-100 dark:border-slate-800">
+                            <button 
+                                onClick={() => setAdjustmentData(null)}
+                                className="flex-1 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={handleAdjustStock}
+                                disabled={adjustLoading}
+                                className="flex-1 py-3 bg-primary text-white font-black rounded-xl hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {adjustLoading ? (
+                                    <span className="material-symbols-outlined animate-spin text-xl">sync</span>
+                                ) : (
+                                    <>
+                                        <span className="material-symbols-outlined text-xl">save</span>
+                                        Salvar
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

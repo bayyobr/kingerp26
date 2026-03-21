@@ -22,8 +22,6 @@ import Agenda from './components/Agenda';
 import StrategicPage from './components/notes/StrategicPage';
 import PlaceholderPage from './components/PlaceholderPage';
 import IntegrationsList from './components/integrations/IntegrationsList';
-import ShopeeIntegration from './components/integrations/ShopeeIntegration';
-import ShopeeCallback from './components/integrations/ShopeeCallback';
 
 
 import { supabase } from './services/supabase';
@@ -181,8 +179,6 @@ const AppContent: React.FC = () => {
 
           {/* Integrations */}
           <Route path="/integracoes" element={<IntegrationsList />} />
-          <Route path="/integracoes/shopee" element={<ShopeeIntegration />} />
-          <Route path="/integracoes/shopee/callback" element={<ShopeeCallback />} />
 
           <Route path="*" element={<Dashboard />} />
         </Routes>

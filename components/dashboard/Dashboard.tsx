@@ -17,6 +17,7 @@ import { RankingLists } from './RankingLists';
 import { TeamGoals } from './TeamGoals';
 import { ActivityFeed } from './ActivityFeed';
 import { QuickActions } from './QuickActions';
+import { useExchangeRate } from '../../hooks/useExchangeRate';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | '30days' | 'year' | 'custom';
@@ -31,6 +32,7 @@ const Dashboard: React.FC = () => {
     const [topClients, setTopClients] = useState<TopClient[]>([]);
     const [sellers, setSellers] = useState<SellerRanking[]>([]);
     const [activities, setActivities] = useState<DashboardActivity[]>([]);
+    const { rate: usdRate } = useExchangeRate();
 
     // Date Filter State
     const [preset, setPreset] = useState<DatePreset>('month');
@@ -126,6 +128,19 @@ const Dashboard: React.FC = () => {
                         <h1 className="text-xl font-black text-white uppercase tracking-tighter">Command Center</h1>
                     </div>
                     <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Gestão em Tempo Real • {new Date().toLocaleDateString('pt-BR')}</p>
+                </div>
+
+                {/* Live USD Quote Badge */}
+                <div className="hidden lg:flex items-center gap-4 bg-slate-900/50 border border-slate-800 rounded-full px-4 py-1.5 shadow-xl animate-in fade-in zoom-in duration-500">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-blue-400 text-[20px]">attach_money</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter leading-none">Câmbio Comercial</span>
+                            <span className="text-sm font-black text-white">USD <span className="text-blue-400">R$ {usdRate?.toFixed(2) || '---'}</span></span>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800 shadow-2xl">

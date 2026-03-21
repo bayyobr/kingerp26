@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../services/supabase';
+import { useExchangeRate } from '../hooks/useExchangeRate';
+import { formatCurrency } from '../utils/formatters';
 
 interface SubMenu {
   path: string;
@@ -17,8 +19,9 @@ interface MenuItem {
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(true);
   const [menusOpen, setMenusOpen] = useState<{ [key: string]: boolean }>({});
+  const { rate, loading: rateLoading } = useExchangeRate();
 
   const menuItems: MenuItem[] = [
     { path: '/', label: 'Painel', icon: 'grid_view' },
@@ -195,8 +198,32 @@ const Sidebar: React.FC = () => {
           })}
         </div>
 
+        {/* Exchange Rate */}
+        {!isMinimized && (
+          <div className="mt-auto mb-2 px-3 py-2 bg-slate-800/30 rounded-xl border border-slate-800/50 group/rate animate-in fade-in slide-in-from-bottom-2 duration-700">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Dólar Comercial</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-white font-black text-lg">
+                {rateLoading ? '...' : `R$ ${rate?.toFixed(2)}`}
+              </span>
+              <span className="text-[10px] text-emerald-500 font-bold bg-emerald-500/10 px-1 rounded">Live</span>
+            </div>
+          </div>
+        )}
+
+        {isMinimized && (
+           <div className="mt-auto mb-2 flex justify-center py-2" title={`Dólar: R$ ${rate?.toFixed(2)}`}>
+              <span className="material-symbols-outlined text-emerald-500 text-[20px] animate-pulse">
+                attach_money
+              </span>
+           </div>
+        )}
+
         {/* Bottom */}
-        <div className="mt-auto border-t border-[#1e242b] pt-4 flex flex-col gap-1">
+        <div className="border-t border-[#1e242b] pt-4 flex flex-col gap-1">
           {bottomItems.map(item => (
             <Link
               key={item.path}

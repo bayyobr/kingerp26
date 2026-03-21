@@ -6,15 +6,6 @@ const IntegrationsList: React.FC = () => {
 
     const integrations = [
         {
-            id: 'shopee',
-            name: 'Shopee',
-            description: 'Sincronize estoque e pedidos com a Shopee.',
-            icon: 'shopping_bag',
-            color: '#ee4d2d',
-            path: '/integracoes/shopee',
-            status: 'Ativo'
-        },
-        {
             id: 'mercadolivre',
             name: 'Mercado Livre',
             description: 'Venda e gerencie seus anúncios do Mercado Livre.',

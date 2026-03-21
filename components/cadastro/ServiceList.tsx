@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { serviceService, Service } from '../../services/serviceService';
+import NumberInput from '../common/NumberInput';
 
 const ServiceList: React.FC = () => {
     const [services, setServices] = useState<Service[]>([]);
@@ -223,12 +224,11 @@ const ServiceList: React.FC = () => {
                                     <label className="text-sm font-bold text-slate-300">Preço (R$)</label>
                                     <div className="relative">
                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">R$</span>
-                                        <input
-                                            type="number"
+                                        <NumberInput
                                             step="0.01"
                                             required
                                             value={formData.price}
-                                            onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                                            onChange={(val) => setFormData({ ...formData, price: val })}
                                             className="w-full bg-slate-900/50 border border-slate-700 rounded-xl pl-12 pr-4 py-3 text-white font-bold focus:border-blue-500 focus:outline-none transition-all shadow-inner"
                                         />
                                     </div>

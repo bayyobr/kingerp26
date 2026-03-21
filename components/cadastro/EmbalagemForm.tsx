@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Embalagem } from '../../types';
 import { embalagemService } from '../../services/embalagemService';
 import { formatCurrency } from '../../utils/formatters';
+import { useExchangeRate } from '../../hooks/useExchangeRate';
 
 interface EmbalagemFormProps {
   onClose: () => void;
@@ -24,6 +25,7 @@ export const EmbalagemForm: React.FC<EmbalagemFormProps> = ({ onClose, onSave, e
     custo_material_adicional: 0,
     foto_url: ''
   });
+  const { rate } = useExchangeRate();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -35,7 +37,20 @@ export const EmbalagemForm: React.FC<EmbalagemFormProps> = ({ onClose, onSave, e
   }, [embalagemToEdit]);
 
   const handleChange = (field: keyof Embalagem, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-conversion logic
+      if (rate) {
+        if (field === 'preco_unitario_brl') {
+          updated.preco_unitario_usd = Number((Number(value) / rate).toFixed(2));
+        } else if (field === 'preco_unitario_usd') {
+          updated.preco_unitario_brl = Number((Number(value) * rate).toFixed(2));
+        }
+      }
+      
+      return updated;
+    });
   };
 
   const calculatePackPrice = () => {

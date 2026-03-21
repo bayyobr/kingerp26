@@ -59,6 +59,50 @@ export const productService = {
             console.error('Error deleting product:', error);
             throw error;
         }
+    },
+
+    async updateVariationStock(productId: string, variationId: string, newStock: number): Promise<Product> {
+        const { data: product, error: fetchError } = await supabase
+            .from('products')
+            .select('*')
+            .eq('id', productId)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        const variations = product.variations || [];
+        const index = variations.findIndex((v: any) => v.id === variationId);
+        if (index === -1) throw new Error('Variation not found');
+
+        variations[index].stock = newStock;
+
+        // Recalculate total stock
+        const totalStock = variations.reduce((acc: number, v: any) => acc + (v.stock || 0), 0);
+
+        const { data: updated, error: updateError } = await supabase
+            .from('products')
+            .update({
+                variations,
+                stock_quantity: totalStock
+            })
+            .eq('id', productId)
+            .select()
+            .single();
+
+        if (updateError) throw updateError;
+        return mapToProduct(updated);
+    },
+
+    async updateProductStock(productId: string, newStock: number): Promise<Product> {
+        const { data: updated, error: updateError } = await supabase
+            .from('products')
+            .update({ stock_quantity: newStock })
+            .eq('id', productId)
+            .select()
+            .single();
+
+        if (updateError) throw updateError;
+        return mapToProduct(updated);
     }
 };
 

@@ -251,7 +251,7 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => navigate('/vendas/ordens')}
+            onClick={() => navigate(-1)}
             className="px-4 py-2.5 border border-slate-300 dark:border-border-dark rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-dark transition-colors"
           >
             Cancelar
@@ -741,7 +741,7 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
           <div className="flex items-center justify-end gap-4 mt-4">
             <button
               type="button"
-              onClick={() => navigate('/ordens')}
+              onClick={() => navigate(-1)}
               className="px-8 py-3.5 border border-slate-300 dark:border-border-dark rounded-xl text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95"
             >
               Cancelar
