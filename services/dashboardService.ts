@@ -114,10 +114,37 @@ export const dashboardService = {
 
         // Fetch Current Period
         const [sales, services, clients] = await Promise.all([
-            supabase.from('vendas').select('total').gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
-            supabase.from('service_orders').select('price_total').eq('status', 'Concluído').gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
+            supabase.from('vendas').select('id, total, items:vendas_itens(tipo_item, item_id, quantidade, subtotal)').gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
+            supabase.from('service_orders').select('price_total, price_parts').eq('status', 'Concluído').gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
             supabase.from('clients').select('id').gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59')
         ]);
+
+        // Calculate Costs from Sales Items
+        let totalSalesCost = 0;
+        if (sales.data && sales.data.length > 0) {
+            const allItems = sales.data.flatMap((s: any) => s.items || []);
+            const productIds = allItems.filter(i => i.tipo_item === 'produto').map(i => i.item_id);
+            const aparelhoIds = allItems.filter(i => i.tipo_item === 'aparelho').map(i => i.item_id);
+
+            const [prods, devs] = await Promise.all([
+                productIds.length > 0 ? supabase.from('products').select('id, cost_price').in('id', productIds) : Promise.resolve({ data: [] }),
+                aparelhoIds.length > 0 ? supabase.from('aparelhos').select('id, preco_custo').in('id', aparelhoIds) : Promise.resolve({ data: [] })
+            ]);
+
+            const productCosts = (prods.data || []).reduce((acc: any, p: any) => ({ ...acc, [p.id]: Number(p.cost_price || 0) }), {});
+            const deviceCosts = (devs.data || []).reduce((acc: any, d: any) => ({ ...acc, [d.id]: Number(d.preco_custo || 0) }), {});
+
+            allItems.forEach((item: any) => {
+                if (item.tipo_item === 'produto') {
+                    totalSalesCost += (productCosts[item.item_id] || 0) * item.quantidade;
+                } else if (item.tipo_item === 'aparelho') {
+                    totalSalesCost += (deviceCosts[item.item_id] || 0) * item.quantidade;
+                }
+            });
+        }
+
+        const totalServicePartsCost = services.data?.reduce((acc, curr) => acc + Number(curr.price_parts || 0), 0) || 0;
+
 
         // Fetch Previous Period
         const [prevSales, prevServices, prevClients] = await Promise.all([
@@ -148,7 +175,7 @@ export const dashboardService = {
             salesCount,
             avgTicket: salesCount > 0 ? revenueTotal / salesCount : 0,
             newClients: clients.data?.length || 0,
-            profitEstimated: revenueTotal * 0.32, // placeholder for margins
+            profitEstimated: revenueTotal - totalSalesCost - totalServicePartsCost,
             prevRevenueTotal,
             prevSalesCount,
             prevAvgTicket: prevSalesCount > 0 ? prevRevenueTotal / prevSalesCount : 0,
