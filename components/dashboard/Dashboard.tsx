@@ -24,6 +24,7 @@ type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | '30days' | 'year' |
 
 const Dashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [summary, setSummary] = useState<DashboardSummary | null>(null);
     const [revenueData, setRevenueData] = useState<DashboardChartsData>({ total: [], sales: [], services: [] });
     const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
@@ -35,13 +36,36 @@ const Dashboard: React.FC = () => {
     const { rate: usdRate } = useExchangeRate();
 
     // Date Filter State
-    const [preset, setPreset] = useState<DatePreset>('month');
+    const [preset, setPreset] = useState<DatePreset>(() => {
+        return (localStorage.getItem('dashboard_preset') as DatePreset) || 'month';
+    });
+
+    const getLocalDateString = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const getTimezoneOffsetString = () => {
+        const tzo = -new Date().getTimezoneOffset();
+        const dif = tzo >= 0 ? '+' : '-';
+        const pad = (num: number) => String(Math.floor(Math.abs(num))).padStart(2, '0');
+        return dif + pad(tzo / 60) + ':' + pad(tzo % 60);
+    };
+
     const [startDate, setStartDate] = useState(() => {
+        const saved = localStorage.getItem('dashboard_startDate');
+        if (saved) return saved;
         const d = new Date();
         d.setDate(1);
-        return d.toISOString().split('T')[0];
+        return getLocalDateString(d);
     });
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState(() => {
+        const saved = localStorage.getItem('dashboard_endDate');
+        if (saved) return saved;
+        return getLocalDateString(new Date());
+    });
 
     const handlePresetChange = (newPreset: DatePreset) => {
         setPreset(newPreset);
@@ -69,43 +93,47 @@ const Dashboard: React.FC = () => {
             case 'custom': return;
         }
 
-        setStartDate(start.toISOString().split('T')[0]);
-        setEndDate(end.toISOString().split('T')[0]);
+        setStartDate(getLocalDateString(start));
+        setEndDate(getLocalDateString(end));
     };
+
+    // Persistence Effect
+    useEffect(() => {
+        localStorage.setItem('dashboard_preset', preset);
+        localStorage.setItem('dashboard_startDate', startDate);
+        localStorage.setItem('dashboard_endDate', endDate);
+    }, [preset, startDate, endDate]);
 
     const fetchData = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const [
-                summaryRes,
-                revenueRes,
-                catRes,
-                alertsRes,
-                productsRes,
-                clientsRes,
-                sellersRes,
-                activitiesRes
-            ] = await Promise.all([
-                dashboardService.getDashboardStats(startDate, endDate),
-                dashboardService.getRevenueHistory(startDate, endDate),
-                dashboardService.getRevenueByCategory(startDate, endDate),
+            const tz = getTimezoneOffsetString();
+            const startISO = `${startDate}T00:00:00${tz}`;
+            const endISO = `${endDate}T23:59:59${tz}`;
+
+            const [summaryData, chartsData, categories, alertsData, products, clients, ranking, activity] = await Promise.all([
+                dashboardService.getDashboardStats(startISO, endISO),
+                dashboardService.getRevenueHistory(startISO, endISO),
+                dashboardService.getRevenueByCategory(startISO, endISO),
                 dashboardService.getSmartAlerts(),
-                dashboardService.getTopProducts(startDate),
-                dashboardService.getTopClients(startDate, endDate),
-                dashboardService.getSellersRanking(startDate, endDate),
+                dashboardService.getTopProducts(startISO, endISO),
+                dashboardService.getTopClients(startISO, endISO),
+                dashboardService.getSellersRanking(startISO, endISO),
                 dashboardService.getUnifiedActivity()
             ]);
 
-            setSummary(summaryRes);
-            setRevenueData(revenueRes);
-            setCategoryData(catRes);
-            setAlerts(alertsRes);
-            setTopProducts(productsRes);
-            setTopClients(clientsRes);
-            setSellers(sellersRes);
-            setActivities(activitiesRes);
-        } catch (error) {
-            console.error("Error fetching dashboard data", error);
+            setSummary(summaryData);
+            setRevenueData(chartsData);
+            setCategoryData(categories);
+            setAlerts(alertsData);
+            setTopProducts(products);
+            setTopClients(clients);
+            setSellers(ranking);
+            setActivities(activity);
+        } catch (err) {
+            console.error("Error fetching dashboard data", err);
+            setError("Erro ao carregar os dados do painel.");
         } finally {
             setLoading(false);
         }
