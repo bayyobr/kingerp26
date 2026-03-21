@@ -43,6 +43,14 @@ const PDV: React.FC = () => {
     const [currentAmount, setCurrentAmount] = useState<number>(0);
     const [installments, setInstallments] = useState<number>(1);
     const [interestFee, setInterestFee] = useState<number>(0);
+    const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]);
+
+    const getTimezoneOffsetString = () => {
+        const tzo = -new Date().getTimezoneOffset();
+        const dif = tzo >= 0 ? '+' : '-';
+        const pad = (num: number) => String(Math.floor(Math.abs(num))).padStart(2, '0');
+        return dif + pad(tzo / 60) + ':' + pad(tzo % 60);
+    };
 
     useEffect(() => {
         loadData();
@@ -63,6 +71,7 @@ const PDV: React.FC = () => {
                 if (draft.selectedSellerId) setSelectedSellerId(draft.selectedSellerId);
                 if (draft.saleType) setSaleType(draft.saleType);
                 if (draft.deliveryFee) setDeliveryFee(draft.deliveryFee);
+                if (draft.saleDate) setSaleDate(draft.saleDate);
             } catch (e) {
                 console.error('Erro ao carregar rascunho do PDV', e);
             }
@@ -70,14 +79,14 @@ const PDV: React.FC = () => {
     };
 
     useEffect(() => {
-        if (cart.length > 0 || clientName) {
+        if (cart.length > 0 || clientName || saleDate !== new Date().toISOString().split('T')[0]) {
             const draft = {
                 cart, clientName, clientPhone, clientCpf,
-                discount, selectedSellerId, saleType, deliveryFee
+                discount, selectedSellerId, saleType, deliveryFee, saleDate
             };
             localStorage.setItem('pdv_draft', JSON.stringify(draft));
         }
-    }, [cart, clientName, clientPhone, clientCpf, discount, selectedSellerId, saleType, deliveryFee]);
+    }, [cart, clientName, clientPhone, clientCpf, discount, selectedSellerId, saleType, deliveryFee, saleDate]);
 
     const clearPDVDraft = () => {
         localStorage.removeItem('pdv_draft');
@@ -341,7 +350,8 @@ const PDV: React.FC = () => {
                 payment_details: payments,
                 sale_type: saleType,
                 delivery_fee: saleType === 'Entrega' ? deliveryFee : 0,
-                status: 'Concluída'
+                status: 'Concluída',
+                created_at: `${saleDate}T${new Date().toLocaleTimeString('sv-SE')}${getTimezoneOffsetString()}`
             };
 
             const savedVenda = await salesService.create(venda, cart);
@@ -369,6 +379,7 @@ const PDV: React.FC = () => {
             setCurrentMethod('');
             setSaleType('Retirada');
             setDeliveryFee(0);
+            setSaleDate(new Date().toISOString().split('T')[0]);
             clearPDVDraft();
             loadData(); // Refresh stock
         } catch (error: any) {
@@ -530,17 +541,28 @@ const PDV: React.FC = () => {
                 {/* Checkout Section */}
                 <div className="flex-none p-4 bg-white dark:bg-surface-dark flex flex-col gap-3 overflow-y-auto max-h-[50vh] border-t border-slate-200 dark:border-slate-800 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-10">
 
-                    {/* Seller Select */}
-                    <div>
-                        {/* Compact Seller Select */}
-                        <select
-                            value={selectedSellerId}
-                            onChange={e => setSelectedSellerId(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg p-2 text-sm outline-none text-slate-700 dark:text-white"
-                        >
-                            <option value="">Selecione Vendedor...</option>
-                            {sellers.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                        </select>
+                    {/* Sale Date & Seller */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Data da Venda</label>
+                            <input
+                                type="date"
+                                value={saleDate}
+                                onChange={e => setSaleDate(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg p-2 text-sm outline-none text-slate-700 dark:text-white"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Vendedor</label>
+                            <select
+                                value={selectedSellerId}
+                                onChange={e => setSelectedSellerId(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg p-2 text-sm outline-none text-slate-700 dark:text-white"
+                            >
+                                <option value="">Selecione...</option>
+                                {sellers.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                            </select>
+                        </div>
                     </div>
 
                     {/* Client & Logic - More Compact */}

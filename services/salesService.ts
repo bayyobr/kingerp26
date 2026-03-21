@@ -41,11 +41,12 @@ export const salesService = {
                 subtotal: venda.subtotal,
                 desconto: venda.desconto,
                 total: venda.total,
-                forma_pagamento: venda.forma_pagamento, // Main method or 'Múltiplo'
+                forma_pagamento: venda.forma_pagamento,
                 payment_details: venda.payment_details,
                 sale_type: venda.sale_type,
                 delivery_fee: venda.delivery_fee,
-                status: 'Concluída'
+                status: 'Concluída',
+                created_at: venda.created_at || new Date().toISOString()
             })
             .select()
             .single();
@@ -64,7 +65,8 @@ export const salesService = {
             variacao_nome: item.variacao_nome,
             quantidade: item.quantidade,
             preco_unitario: item.preco_unitario,
-            subtotal: item.subtotal
+            subtotal: item.subtotal,
+            created_at: saleData.created_at // Use the same timestamp for items
         }));
 
         const { error: itemsError } = await supabase
@@ -99,7 +101,7 @@ export const salesService = {
                     .from('aparelhos')
                     .update({
                         status: 'Vendido',
-                        data_venda: new Date().toISOString().split('T')[0]
+                        data_venda: saleData.created_at.split('T')[0]
                     })
                     .eq('id', item.item_id);
 

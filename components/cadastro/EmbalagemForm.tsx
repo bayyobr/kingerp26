@@ -3,6 +3,8 @@ import { Embalagem } from '../../types';
 import { embalagemService } from '../../services/embalagemService';
 import { formatCurrency } from '../../utils/formatters';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
+import { productService } from '../../services/productService';
+import { Product } from '../../types';
 
 interface EmbalagemFormProps {
   onClose: () => void;
@@ -23,18 +25,30 @@ export const EmbalagemForm: React.FC<EmbalagemFormProps> = ({ onClose, onSave, e
     preco_unitario_brl: 0,
     unidades_por_pacote: 1,
     custo_material_adicional: 0,
-    foto_url: ''
+    foto_url: '',
+    produto_id: null
   });
   const { rate } = useExchangeRate();
+  const [products, setProducts] = useState<Product[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    loadProducts();
     if (embalagemToEdit) {
       setFormData(embalagemToEdit);
     }
   }, [embalagemToEdit]);
+
+  const loadProducts = async () => {
+    try {
+      const data = await productService.getAll();
+      setProducts(data);
+    } catch (err) {
+      console.error('Erro ao carregar produtos:', err);
+    }
+  };
 
   const handleChange = (field: keyof Embalagem, value: any) => {
     setFormData(prev => {
@@ -159,6 +173,20 @@ export const EmbalagemForm: React.FC<EmbalagemFormProps> = ({ onClose, onSave, e
                     <option value="Inativo">Inativo</option>
                   </select>
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Produto que utiliza esta embalagem (Opcional)</label>
+                <select
+                  value={formData.produto_id || ''}
+                  onChange={(e) => handleChange('produto_id', e.target.value || null)}
+                  className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">Nenhum produto específico</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">Ao vincular, o custo desta embalagem será somado ao custo do produto no cálculo de lucro.</p>
               </div>
             </div>
 

@@ -311,6 +311,7 @@ export interface Embalagem {
   preco_unitario_brl: number;
   unidades_por_pacote: number;
   custo_material_adicional: number;
+  produto_id?: string | null;
   created_at?: string;
 }
 

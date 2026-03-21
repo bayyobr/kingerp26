@@ -150,17 +150,25 @@ export const dashboardService = {
             const productIds = allItems.filter(i => i.tipo_item === 'produto').map(i => i.item_id);
             const aparelhoIds = allItems.filter(i => i.tipo_item === 'aparelho').map(i => i.item_id);
 
-            const [prods, devs] = await Promise.all([
+            const [prods, devs, embalagens] = await Promise.all([
                 productIds.length > 0 ? supabase.from('products').select('id, cost_price').in('id', productIds) : Promise.resolve({ data: [] }),
-                aparelhoIds.length > 0 ? supabase.from('aparelhos').select('id, preco_custo').in('id', aparelhoIds) : Promise.resolve({ data: [] })
+                aparelhoIds.length > 0 ? supabase.from('aparelhos').select('id, preco_custo').in('id', aparelhoIds) : Promise.resolve({ data: [] }),
+                supabase.from('embalagens').select('produto_id, preco_unitario_brl, custo_material_adicional').not('produto_id', 'is', null)
             ]);
 
             const productCosts = (prods.data || []).reduce((acc: any, p: any) => ({ ...acc, [p.id]: Number(p.cost_price || 0) }), {});
             const deviceCosts = (devs.data || []).reduce((acc: any, d: any) => ({ ...acc, [d.id]: Number(d.preco_custo || 0) }), {});
+            
+            // Map product_id to packaging cost
+            const packagingCosts = (embalagens.data || []).reduce((acc: any, e: any) => ({ 
+                ...acc, 
+                [e.produto_id]: Number(e.preco_unitario_brl || 0) + Number(e.custo_material_adicional || 0) 
+            }), {});
 
             allItems.forEach((item: any) => {
+                const pkgCost = packagingCosts[item.item_id] || 0;
                 if (item.tipo_item === 'produto') {
-                    totalSalesCost += (productCosts[item.item_id] || 0) * item.quantidade;
+                    totalSalesCost += ((productCosts[item.item_id] || 0) + pkgCost) * item.quantidade;
                 } else if (item.tipo_item === 'aparelho') {
                     totalSalesCost += (deviceCosts[item.item_id] || 0) * item.quantidade;
                 }
