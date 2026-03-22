@@ -60,6 +60,10 @@ export const hubEstrategicoService = {
     if (error) throw error;
     return data;
   },
+  async deleteEvent(id: string) {
+    const { error } = await supabase.from('estrategico_eventos').delete().eq('id', id);
+    if (error) throw error;
+  },
 
   // --- NOTES (ANOTAÇÕES) ---
   async getNotes(): Promise<StrategicNote[]> {

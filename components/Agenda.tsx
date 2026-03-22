@@ -1,22 +1,30 @@
-import React, { useState } from 'react';
-
-interface AgendaEvent {
-    id: number;
-    title: string;
-    date: Date;
-    type: 'reuniao' | 'cliente' | 'entrega' | 'outros';
-}
+import React, { useState, useEffect } from 'react';
+import { hubEstrategicoService } from '../services/hubEstrategicoService';
+import { StrategicEvent } from '../types';
 
 const Agenda: React.FC = () => {
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [events, setEvents] = useState<AgendaEvent[]>([
-        { id: 1, title: 'Reunião Equipe', date: new Date(new Date().getFullYear(), new Date().getMonth(), 12), type: 'reuniao' },
-        { id: 2, title: 'Atendimento Cliente', date: new Date(new Date().getFullYear(), new Date().getMonth(), 14), type: 'cliente' },
-        { id: 3, title: 'Entrega Fornecedor', date: new Date(new Date().getFullYear(), new Date().getMonth(), 15), type: 'entrega' }
-    ]);
+    const [events, setEvents] = useState<StrategicEvent[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingId, setEditingId] = useState<number | null>(null);
-    const [newEvent, setNewEvent] = useState({ title: '', date: '', type: 'reuniao' });
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [newEvent, setNewEvent] = useState({ titulo: '', data: '', tipo: 'reuniao', descricao: '' });
+
+    useEffect(() => {
+        loadEvents();
+    }, []);
+
+    const loadEvents = async () => {
+        try {
+            setLoading(true);
+            const data = await hubEstrategicoService.getEvents();
+            setEvents(data);
+        } catch (error) {
+            console.error('Failed to load events', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -26,57 +34,55 @@ const Agenda: React.FC = () => {
         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
     ];
 
-    const handleSaveEvent = (e: React.FormEvent) => {
+    const handleSaveEvent = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newEvent.title || !newEvent.date) return;
+        if (!newEvent.titulo || !newEvent.data) return;
 
-        // Parse manually to ensure local time is used, preventing timezone shifts
-        const [year, month, day] = newEvent.date.split('-').map(Number);
-        const eventDate = new Date(year, month - 1, day, 12, 0, 0, 0); // Noon to be safe
-
-        if (editingId) {
-            setEvents(events.map(ev => ev.id === editingId ? {
-                ...ev,
-                title: newEvent.title,
-                date: eventDate,
-                type: newEvent.type as any
-            } : ev));
-        } else {
-            const event: AgendaEvent = {
-                id: Date.now(),
-                title: newEvent.title,
-                date: eventDate,
-                type: newEvent.type as any
+        try {
+            const eventToSave: Partial<StrategicEvent> = {
+                titulo: newEvent.titulo,
+                data: newEvent.data,
+                tipo: newEvent.tipo,
+                descricao: newEvent.descricao
             };
-            setEvents([...events, event]);
-        }
 
-        closeModal();
+            if (editingId) {
+                eventToSave.id = editingId;
+            }
+
+            await hubEstrategicoService.upsertEvent(eventToSave);
+            await loadEvents();
+            closeModal();
+        } catch (error) {
+            alert('Erro ao salvar evento');
+        }
     };
 
-    const deleteEvent = () => {
+    const deleteEvent = async () => {
         if (editingId) {
-            setEvents(events.filter(ev => ev.id !== editingId));
-            closeModal();
+            try {
+                await hubEstrategicoService.deleteEvent(editingId);
+                await loadEvents();
+                closeModal();
+            } catch (error) {
+                alert('Erro ao excluir evento');
+            }
         }
     };
 
     const openNewEventModal = () => {
         setEditingId(null);
-        setNewEvent({ title: '', date: '', type: 'meeting' });
+        setNewEvent({ titulo: '', data: '', tipo: 'reuniao', descricao: '' });
         setIsModalOpen(true);
     };
 
-    const openEditModal = (event: AgendaEvent) => {
+    const openEditModal = (event: StrategicEvent) => {
         setEditingId(event.id);
-        const yyyy = event.date.getFullYear();
-        const mm = String(event.date.getMonth() + 1).padStart(2, '0');
-        const dd = String(event.date.getDate()).padStart(2, '0');
-
         setNewEvent({
-            title: event.title,
-            date: `${yyyy}-${mm}-${dd}`,
-            type: event.type
+            titulo: event.titulo,
+            data: event.data,
+            tipo: event.tipo,
+            descricao: event.descricao || ''
         });
         setIsModalOpen(true);
     };
@@ -84,7 +90,7 @@ const Agenda: React.FC = () => {
     const closeModal = () => {
         setIsModalOpen(false);
         setEditingId(null);
-        setNewEvent({ title: '', date: '', type: 'meeting' });
+        setNewEvent({ titulo: '', data: '', tipo: 'reuniao', descricao: '' });
     };
 
     const days = [];
@@ -97,11 +103,10 @@ const Agenda: React.FC = () => {
     for (let i = 1; i <= daysInMonth; i++) {
         const isToday = i === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear();
 
-        const dayEvents = events.filter(e =>
-            e.date.getDate() === i &&
-            e.date.getMonth() === currentDate.getMonth() &&
-            e.date.getFullYear() === currentDate.getFullYear()
-        );
+        const dayEvents = events.filter(e => {
+            const [y, m, d] = e.data.split('-').map(Number);
+            return d === i && (m - 1) === currentDate.getMonth() && y === currentDate.getFullYear();
+        });
 
         days.push(
             <div key={i} className={`h-24 md:h-32 border border-slate-100 dark:border-slate-800/50 p-2 relative group hover:bg-slate-50 dark:hover:bg-surface-darker/50 transition-colors ${isToday ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'bg-white dark:bg-surface-dark'}`}>
@@ -114,13 +119,16 @@ const Agenda: React.FC = () => {
                         <div
                             key={event.id}
                             onClick={(e) => { e.stopPropagation(); openEditModal(event); }}
-                            className={`text-xs p-1 rounded truncate border cursor-pointer hover:opacity-80 transition-opacity ${event.type === 'reuniao' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-900/50' :
-                                event.type === 'cliente' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-900/50' :
-                                    event.type === 'entrega' ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900/50' :
-                                        'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                            className={`text-[10px] p-1.5 rounded-lg border cursor-pointer hover:scale-[1.02] transition-all flex flex-col gap-0.5 ${event.tipo === 'reuniao' ? 'bg-purple-100/80 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-900/50' :
+                                event.tipo === 'cliente' ? 'bg-blue-100/80 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-900/50' :
+                                    event.tipo === 'entrega' ? 'bg-amber-100/80 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900/50' :
+                                        'bg-slate-100/80 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                                 }`}
                         >
-                            {event.title}
+                            <span className="font-bold truncate">{event.titulo}</span>
+                            {event.descricao && (
+                                <span className="text-[9px] opacity-80 truncate">{event.descricao}</span>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -197,8 +205,8 @@ const Agenda: React.FC = () => {
                                     required
                                     className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white"
                                     placeholder="Ex: Reunião com Cliente"
-                                    value={newEvent.title}
-                                    onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
+                                    value={newEvent.titulo}
+                                    onChange={e => setNewEvent({ ...newEvent, titulo: e.target.value })}
                                 />
                             </div>
                             <div>
@@ -207,22 +215,33 @@ const Agenda: React.FC = () => {
                                     type="date"
                                     required
                                     className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white"
-                                    value={newEvent.date}
-                                    onChange={e => setNewEvent({ ...newEvent, date: e.target.value })}
+                                    value={newEvent.data}
+                                    onChange={e => setNewEvent({ ...newEvent, data: e.target.value })}
                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo</label>
                                 <select
                                     className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white"
-                                    value={newEvent.type}
-                                    onChange={e => setNewEvent({ ...newEvent, type: e.target.value as any })}
+                                    value={newEvent.tipo}
+                                    onChange={e => setNewEvent({ ...newEvent, tipo: e.target.value as any })}
                                 >
                                     <option value="reuniao">Reunião (Roxo)</option>
                                     <option value="cliente">Cliente (Azul)</option>
                                     <option value="entrega">Entrega (Amarelo)</option>
                                     <option value="outros">Outros (Cinza)</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    Descrição e Horário <span className="text-slate-400 font-normal">(opcional)</span>
+                                </label>
+                                <textarea
+                                    className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white resize-none h-24"
+                                    placeholder="Ex: 14:00 - Levar aparelhos para o fornecedor na rua X"
+                                    value={newEvent.descricao}
+                                    onChange={e => setNewEvent({ ...newEvent, descricao: e.target.value })}
+                                />
                             </div>
                             <div className="pt-2 flex justify-between gap-2">
                                 {editingId && (

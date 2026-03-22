@@ -29,10 +29,28 @@ export const productService = {
             throw error;
         }
 
-        return mapToProduct(data);
+        const newProduct = mapToProduct(data);
+        
+        // Log initial stock if > 0
+        if (newProduct.variations && newProduct.variations.length > 0) {
+            for (const v of newProduct.variations) {
+                if (v.stock > 0) {
+                    await this.logInternalMovement(newProduct, v.stock, v, 'Estoque Inicial');
+                }
+            }
+        } else if (newProduct.stockQuantity > 0) {
+            await this.logInternalMovement(newProduct, newProduct.stockQuantity, null, 'Estoque Inicial');
+        }
+
+        return newProduct;
     },
 
     async update(product: Product): Promise<Product> {
+        // 1. Fetch current version to detect changes
+        const { data: oldData } = await supabase.from('products').select('*').eq('id', product.id).single();
+        const oldProduct = oldData ? mapToProduct(oldData) : null;
+
+        // 2. Perform update
         const dbProduct = mapToDbProduct(product);
         const { data, error } = await supabase
             .from('products')
@@ -46,7 +64,41 @@ export const productService = {
             throw error;
         }
 
-        return mapToProduct(data);
+        const updatedProduct = mapToProduct(data);
+
+        // 3. Detect and log stock changes
+        if (oldProduct) {
+            if (product.type !== 'variation') {
+                const diff = updatedProduct.stockQuantity - oldProduct.stockQuantity;
+                if (diff !== 0) {
+                    await this.logInternalMovement(updatedProduct, diff, null, 'Ajuste Manual (Edição)');
+                }
+            } else {
+                const oldVars = oldProduct.variations || [];
+                const newVars = updatedProduct.variations || [];
+
+                // Track existing and new variations
+                for (const newVar of newVars) {
+                    const oldVar = oldVars.find(v => v.id === newVar.id || v.name.toLowerCase() === newVar.name.toLowerCase());
+                    const oldStock = oldVar ? oldVar.stock : 0;
+                    const diff = newVar.stock - oldStock;
+                    if (diff !== 0) {
+                        await this.logInternalMovement(updatedProduct, diff, newVar, 'Ajuste Manual (Variação)');
+                    }
+                }
+
+                // Track removed variations
+                for (const oldVar of oldVars) {
+                    const exists = newVars.find(v => v.id === oldVar.id || v.name.toLowerCase() === oldVar.name.toLowerCase());
+                    if (!exists && oldVar.stock > 0) {
+                        // It was deleted, so we lost that stock
+                        await this.logInternalMovement(updatedProduct, -oldVar.stock, oldVar, 'Variação Excluída');
+                    }
+                }
+            }
+        }
+
+        return updatedProduct;
     },
 
     async delete(id: string): Promise<void> {
@@ -74,12 +126,15 @@ export const productService = {
         const index = variations.findIndex((v: any) => v.id === variationId);
         if (index === -1) throw new Error('Variation not found');
 
+        // Store old stock BEFORE mutating the array
+        const oldStock = variations[index].stock || 0;
+
         variations[index].stock = newStock;
 
         // Recalculate total stock
         const totalStock = variations.reduce((acc: number, v: any) => acc + (v.stock || 0), 0);
 
-        const { data: updated, error: updateError } = await supabase
+        const { data: dbData, error: updateError } = await supabase
             .from('products')
             .update({
                 variations,
@@ -90,11 +145,24 @@ export const productService = {
             .single();
 
         if (updateError) throw updateError;
-        return mapToProduct(updated);
+        const updated = mapToProduct(dbData);
+
+        // LOG MOVEMENT
+        const diff = newStock - oldStock;
+        if (diff !== 0) {
+            const vObj = updated.variations?.find(v => v.id === variationId);
+            await this.logInternalMovement(updated, diff, vObj || null, 'Ajuste Rápido');
+        }
+
+        return updated;
     },
 
     async updateProductStock(productId: string, newStock: number): Promise<Product> {
-        const { data: updated, error: updateError } = await supabase
+        // Fetch old for logging
+        const { data: oldData } = await supabase.from('products').select('stock_quantity').eq('id', productId).single();
+        const oldStock = oldData?.stock_quantity || 0;
+
+        const { data, error: updateError } = await supabase
             .from('products')
             .update({ stock_quantity: newStock })
             .eq('id', productId)
@@ -102,7 +170,32 @@ export const productService = {
             .single();
 
         if (updateError) throw updateError;
-        return mapToProduct(updated);
+        const updated = mapToProduct(data);
+
+        // LOG MOVEMENT
+        const diff = newStock - oldStock;
+        if (diff !== 0) {
+            await this.logInternalMovement(updated, diff, null, 'Ajuste Rápido');
+        }
+
+        return updated;
+    },
+
+    // Helper for internal logging to avoid circular dependency
+    async logInternalMovement(product: Product, diff: number, variation: any | null, reason: string): Promise<void> {
+        const { data: userData } = await supabase.auth.getUser();
+        await supabase.from('stock_movements').insert({
+            product_id: product.id,
+            variation_id: variation?.id,
+            product_name: product.name + (variation ? ` (${variation.name})` : ''),
+            type: diff > 0 ? 'entrada' : 'saida',
+            quantity: Math.abs(diff),
+            reason: reason,
+            user_id: userData?.user?.id,
+            user_name: 'Sistema',
+            cost_price: product.costPrice,
+            sale_price: variation?.price || product.salePrice
+        });
     }
 };
 

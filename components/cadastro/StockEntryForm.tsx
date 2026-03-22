@@ -18,14 +18,14 @@ const StockEntryForm: React.FC = () => {
   const [usdQuote, setUsdQuote] = useState<number | ''>('');
 
   // Products State
-  const [productsList, setProductsList] = useState<PurchaseOrderProduct[]>([
-    { id: `p_${Date.now()}`, productName: '', quantity: 1, unitPriceUsd: 0, totalProductUsd: 0, finalUnitCostBrl: 0 }
+  const [productsList, setProductsList] = useState<any[]>([
+    { id: `p_${Date.now()}`, productName: '', quantity: 1, unitPriceUsd: '', totalProductUsd: 0, finalUnitCostBrl: 0 }
   ]);
 
   // Shipping & Packages
   const [shippingUsd, setShippingUsd] = useState<number | ''>('');
   const [packageCount, setPackageCount] = useState<number | ''>('');
-  const [packages, setPackages] = useState<PurchaseOrderPackage[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
 
   // Fees
   const [factoryFeeUsd, setFactoryFeeUsd] = useState<number | ''>('');
@@ -49,7 +49,7 @@ const StockEntryForm: React.FC = () => {
       const newPacks = Array(toAdd).fill(0).map((_, i) => ({
         id: `pkg_${Date.now()}_${Math.random()}`,
         aliexpressId: '',
-        taxUsd: 0
+        taxUsd: ''
       }));
       return [...prev, ...newPacks];
     });
@@ -67,28 +67,28 @@ const StockEntryForm: React.FC = () => {
   };
 
   // Calculations
-  const totalProductsUsd = productsList.reduce((sum, p) => sum + (p.quantity * p.unitPriceUsd), 0);
+  const totalProductsUsd = productsList.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPriceUsd) || 0)), 0);
   const totalPackagesTaxUsd = packages.reduce((sum, p) => sum + (Number(p.taxUsd) || 0), 0);
   const totalExtrasUsd = (Number(shippingUsd) || 0) + totalPackagesTaxUsd + (Number(factoryFeeUsd) || 0);
   const totalOrderUsd = totalProductsUsd + totalExtrasUsd;
 
   const getProductFinalUnitBrl = (p: PurchaseOrderProduct) => {
-    const productTotalUsd = p.quantity * p.unitPriceUsd;
+    const productTotalUsd = (Number(p.quantity) || 0) * (Number(p.unitPriceUsd) || 0);
     const proportion = totalProductsUsd > 0 ? (productTotalUsd / totalProductsUsd) : 0;
     const productExtraUsd = totalExtrasUsd * proportion;
     const productFinalTotalUsd = productTotalUsd + productExtraUsd;
-    const productFinalUnitUsd = p.quantity > 0 ? productFinalTotalUsd / p.quantity : 0;
+    const productFinalUnitUsd = (Number(p.quantity) || 0) > 0 ? productFinalTotalUsd / (Number(p.quantity) || 0) : 0;
     return productFinalUnitUsd * (Number(usdQuote) || 0);
   };
 
   const handleAddProductRow = () => {
     setProductsList(prev => [
       ...prev,
-      { id: `p_${Date.now()}`, productName: '', quantity: 1, unitPriceUsd: 0, totalProductUsd: 0, finalUnitCostBrl: 0 }
+      { id: `p_${Date.now()}`, productName: '', quantity: 1, unitPriceUsd: '', totalProductUsd: 0, finalUnitCostBrl: 0 }
     ]);
   };
 
-  const handleProductChange = (id: string, field: keyof PurchaseOrderProduct, value: any) => {
+  const handleProductChange = (id: string, field: string, value: any) => {
     setProductsList(prev => prev.map(p => {
       if (p.id !== id) return p;
       const updated = { ...p, [field]: value };
@@ -103,12 +103,12 @@ const StockEntryForm: React.FC = () => {
         }
       }
 
-      updated.totalProductUsd = updated.quantity * updated.unitPriceUsd;
+      updated.totalProductUsd = (Number(updated.quantity) || 0) * (Number(updated.unitPriceUsd) || 0);
       return updated;
     }));
   };
 
-  const handlePackageChange = (id: string, field: keyof PurchaseOrderPackage, value: any) => {
+  const handlePackageChange = (id: string, field: string, value: any) => {
     setPackages(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
 
@@ -122,7 +122,7 @@ const StockEntryForm: React.FC = () => {
       alert("Preencha Fornecedor e Cotação do Dólar.");
       return;
     }
-    if (productsList.length === 0 || productsList.some(p => !p.productName || p.quantity <= 0 || p.unitPriceUsd <= 0)) {
+    if (productsList.length === 0 || productsList.some(p => !p.productName || Number(p.quantity) <= 0 || Number(p.unitPriceUsd) <= 0)) {
       alert("Revise a lista de produtos. Todos devem ter nome, quantidade > 0 e valor > 0.");
       return;
     }
@@ -133,6 +133,8 @@ const StockEntryForm: React.FC = () => {
       // Prepare the final products array with calculated proportional BRL unit cost
       const finalProducts: PurchaseOrderProduct[] = productsList.map(p => ({
         ...p,
+        quantity: Number(p.quantity) || 0,
+        unitPriceUsd: Number(p.unitPriceUsd) || 0,
         finalUnitCostBrl: getProductFinalUnitBrl(p)
       }));
 
@@ -291,7 +293,7 @@ const StockEntryForm: React.FC = () => {
                       type="number"
                       min="1"
                       value={p.quantity}
-                      onChange={e => handleProductChange(p.id, 'quantity', Number(e.target.value) || 0)}
+                      onChange={e => handleProductChange(p.id, 'quantity', e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
                       required
                     />
@@ -305,7 +307,7 @@ const StockEntryForm: React.FC = () => {
                         step="0.01"
                         min="0"
                         value={p.unitPriceUsd}
-                        onChange={e => handleProductChange(p.id, 'unitPriceUsd', Number(e.target.value) || 0)}
+                        onChange={e => handleProductChange(p.id, 'unitPriceUsd', e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
                         required
                       />
@@ -434,7 +436,7 @@ const StockEntryForm: React.FC = () => {
                         step="0.01"
                         min="0"
                         value={pkg.taxUsd}
-                        onChange={e => handlePackageChange(pkg.id, 'taxUsd', Number(e.target.value) || 0)}
+                        onChange={e => handlePackageChange(pkg.id, 'taxUsd', e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
                       />
                     </div>

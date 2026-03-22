@@ -197,7 +197,9 @@ export interface PaymentDetail {
 
 export interface StockMovement {
   id: string;
-  productId: string;
+  productId?: string;
+  variationId?: string | null;
+  aparelhoId?: string | null;
   productName: string;
   type: 'entrada' | 'saida';
   quantity: number;

@@ -1,129 +1,135 @@
 import { StockMovement, Product, PurchaseOrder } from '../types';
 import { supabase } from './supabase';
-import { salesService } from './salesService';
 import { productService } from './productService';
 
 const STORAGE_KEY = 'stock_movements';
 
 export const stockService = {
     // Add a manual movement
-    async addMovement(movement: Omit<StockMovement, 'id' | 'date'>): Promise<void> {
-        // 1. Create the movement record
-        const newMovement: StockMovement = {
-            ...movement,
-            id: `mov_${Date.now()}`,
-            date: new Date().toISOString(),
-            userId: 'admin', // Mock user for now
-            userName: 'Admin'
-        };
+    async addMovement(movement: Omit<StockMovement, 'id' | 'date'>, skipStockUpdate: boolean = false): Promise<void> {
+        // 1. Create the movement record in Supabase
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData?.user?.id;
 
-        // 2. Save to Local Storage (Simulating backend table)
-        const stored = localStorage.getItem(STORAGE_KEY);
-        const movements: StockMovement[] = stored ? JSON.parse(stored) : [];
-        movements.push(newMovement);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(movements));
+        const { error: moveError } = await supabase
+            .from('stock_movements')
+            .insert({
+                product_id: movement.productId,
+                variation_id: movement.variationId,
+                aparelho_id: movement.aparelhoId,
+                product_name: movement.productName,
+                type: movement.type,
+                quantity: movement.quantity,
+                reason: movement.reason,
+                user_id: userId,
+                user_name: movement.userName || 'Admin',
+                cost_price: movement.costPrice,
+                sale_price: movement.salePrice
+            });
 
-        // 3. Update Real Stock in Supabase
-        // We need to fetch current stock to ensure we are applying delta correctly, 
-        // OR rely on the UI passing the correct 'quantity' to add/subtract.
-        // For 'entrada', we add. For 'saida', we subtract.
+        if (moveError) {
+            console.error("Failed to record movement in Supabase:", moveError);
+            throw moveError;
+        }
 
+        if (skipStockUpdate) return;
+
+        // 2. Update Real Stock in Supabase
         try {
-            // First fetch the product to get current stock (optional but safer)
-            // But we can just use RPC if we want atomicity, or simple update.
-            // Using productService for consistency.
-
-            // We need to know if it's a simple product or variation.
-            // For MVP simplicity in this Manual Form, we'll assume matching by ID.
-            // If the UI passes a productId that is actually a variationId, we need to handle that.
-            // For now, let's assume the UI handles Product IDs (Simple) only or we implement logic.
-            // Let's assume we are updating the main product stockQuantity for now.
-            // If we want to support Variations, the UI needs to let us select the variation.
-
-            const products = await productService.getAll();
-            const product = products.find(p => p.id === movement.productId);
-
-            if (product) {
-                let newStock = product.stockQuantity;
-                if (movement.type === 'entrada') {
-                    newStock += movement.quantity;
-                } else {
-                    newStock = Math.max(0, newStock - movement.quantity);
-                }
-
-                // Update via Supabase direct to save fields
-                const updateData: any = { stock_quantity: newStock };
-                
-                if (movement.type === 'entrada') {
-                    if (movement.costPrice !== undefined) updateData.cost_price = movement.costPrice;
-                    if (movement.salePrice !== undefined) updateData.sale_price = movement.salePrice;
-                }
-
-                const { error } = await supabase
+            if (movement.productId) {
+                const { data: prod, error: fetchErr } = await supabase
                     .from('products')
-                    .update(updateData)
-                    .eq('id', movement.productId);
+                    .select('stock_quantity, variations')
+                    .eq('id', movement.productId)
+                    .single();
 
-                if (error) throw error;
-            } else {
-                // Check if it's a variation? 
-                // Complexity: productService.getAll() returns mapped products.
-                // We'd have to search inside them.
-                // Ideally, the Movement should store productId AND variationId if applicable.
-                // For MVP V1: Simple Products Only.
+                if (!fetchErr && prod) {
+                    if (movement.variationId) {
+                        // Update variation stock
+                        const variations = prod.variations || [];
+                        const index = variations.findIndex((v: any) => v.id === movement.variationId);
+                        if (index !== -1) {
+                            if (movement.type === 'entrada') {
+                                variations[index].stock += movement.quantity;
+                            } else {
+                                variations[index].stock = Math.max(0, variations[index].stock - movement.quantity);
+                            }
+                            // Total stock is sum of variations
+                            const totalStock = variations.reduce((acc: number, v: any) => acc + (v.stock || 0), 0);
+                            await supabase.from('products').update({ variations, stock_quantity: totalStock }).eq('id', movement.productId);
+                        }
+                    } else {
+                        // Update simple product stock
+                        let newStock = prod.stock_quantity;
+                        if (movement.type === 'entrada') {
+                            newStock += movement.quantity;
+                        } else {
+                            newStock = Math.max(0, newStock - movement.quantity);
+                        }
+
+                        const updateData: any = { stock_quantity: newStock };
+                        if (movement.type === 'entrada') {
+                            if (movement.costPrice !== undefined) updateData.cost_price = movement.costPrice;
+                            if (movement.salePrice !== undefined) updateData.sale_price = movement.salePrice;
+                        }
+
+                        await supabase.from('products').update(updateData).eq('id', movement.productId);
+                    }
+                }
+            } else if (movement.aparelhoId) {
+                // Update device stock/status
+                const { data: dev } = await supabase.from('aparelhos').select('estoque').eq('id', movement.aparelhoId).single();
+                if (dev) {
+                    let newStock = dev.estoque;
+                    let newStatus = 'Disponível';
+                    if (movement.type === 'entrada') {
+                        newStock += movement.quantity;
+                    } else {
+                        newStock = Math.max(0, newStock - movement.quantity);
+                        if (newStock === 0) newStatus = 'Vendido';
+                    }
+                    await supabase.from('aparelhos').update({ estoque: newStock, status: newStatus }).eq('id', movement.aparelhoId);
+                }
             }
 
         } catch (error) {
-            console.error("Failed to update stock in Supabase:", error);
-            // We still keep the movement log locally? Or revert?
-            // For now, proceed.
+            console.error("Failed to update stock in Supabase after movement:", error);
         }
     },
 
     // Get all movements (Sales + Manual)
     async getFullHistory(): Promise<StockMovement[]> {
-        // 1. Get Manual Movements
-        const stored = localStorage.getItem(STORAGE_KEY);
-        const manualMovements: StockMovement[] = stored ? JSON.parse(stored) : [];
+        const { data, error } = await supabase
+            .from('stock_movements')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-        // 2. Get Sales and convert to Movements
-        let salesData: StockMovement[] = [];
-        try {
-            const sales = await salesService.getAll();
-
-            sales.forEach(sale => {
-                if (sale.itens) {
-                    sale.itens.forEach(item => {
-                        // Only count products as stock movements (services/devices might count too but logic differs)
-                        // Devices: 'saida'. Products: 'saida'.
-                        if (item.tipo_item === 'produto' || item.tipo_item === 'aparelho') {
-                            salesData.push({
-                                id: `sale_item_${item.id || Math.random()}`, // Unique ID
-                                productId: item.item_id, // or variation_id?
-                                productName: item.item_nome + (item.variacao_nome ? ` (${item.variacao_nome})` : ''),
-                                type: 'saida',
-                                quantity: item.quantidade,
-                                reason: `Venda ${sale.numero_venda || ''}`,
-                                date: sale.created_at || new Date().toISOString(),
-                                userId: sale.vendedor_id,
-                                userName: 'Sistema' // Or fetch winner
-                            });
-                        }
-                    });
-                }
-            });
-        } catch (error) {
-            console.error("Error fetching sales history:", error);
+        if (error) {
+            console.error("Error fetching full history:", error);
+            return [];
         }
 
-        // 3. Merge and Sort
-        const allMovements = [...manualMovements, ...salesData];
-        return allMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return data.map(m => ({
+            id: m.id,
+            productId: m.product_id,
+            variationId: m.variation_id,
+            aparelhoId: m.aparelho_id,
+            productName: m.product_name,
+            type: m.type as 'entrada' | 'saida',
+            quantity: m.quantity,
+            reason: m.reason,
+            date: m.created_at,
+            userId: m.user_id,
+            userName: m.user_name,
+            costPrice: m.cost_price,
+            salePrice: m.sale_price
+        }));
     },
 
     async getManualMovements(): Promise<StockMovement[]> {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        return stored ? JSON.parse(stored) : [];
+        // Now everything is in the same history, we just filter by reason if needed
+        // Or just return the same as getFullHistory for compatibility
+        return this.getFullHistory();
     },
 
     // Add Advanced Purchase Order
@@ -144,29 +150,22 @@ export const stockService = {
 
         // 2. Process each product in the order
         for (const product of order.products) {
-            // Log as movement
-            const movement: StockMovement = {
-                id: `mov_po_${Date.now()}_${product.id}`,
-                productId: product.productId || `new_${Date.now()}`,
-                productName: product.productName,
-                type: 'entrada',
-                quantity: product.quantity,
-                reason: `Entrada Avançada: ${order.supplier}`,
-                date: order.date,
-                userId: 'admin',
-                userName: 'Admin',
-                costPrice: product.finalUnitCostBrl // We track the final calculated BRL cost
-            };
-
-            const storedMovements = localStorage.getItem(STORAGE_KEY);
-            const movements: StockMovement[] = storedMovements ? JSON.parse(storedMovements) : [];
-            movements.push(movement);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(movements));
-
-            // Only update DB if it's an existing product (has valid productId from DB)
+            // Log as movement in Supabase
             if (product.productId) {
+                const { data: userData } = await supabase.auth.getUser();
+                await supabase.from('stock_movements').insert({
+                    product_id: product.productId,
+                    product_name: product.productName,
+                    type: 'entrada',
+                    quantity: product.quantity,
+                    reason: `Compra: ${order.supplier}`,
+                    user_id: userData?.user?.id,
+                    user_name: 'Admin',
+                    cost_price: product.finalUnitCostBrl
+                });
+
+                // Update DB stock
                 try {
-                    // Fetch current to calculate stock delta safely
                     const { data: currentProduct, error: fetchErr } = await supabase
                         .from('products')
                         .select('stock_quantity')

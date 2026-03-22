@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { Venda, VendaItem, Product, Aparelho, Vendedor } from '../types';
+import { stockService } from './stockService';
 
 export const salesService = {
     // Get all sales
@@ -110,6 +111,20 @@ export const salesService = {
                     console.error('Erro ao atualizar status do aparelho:', devError);
                     throw new Error(`Erro ao atualizar aparelho: ${devError.message}`);
                 }
+            }
+            // LOG MOVEMENT
+            if (item.tipo_item === 'produto' || item.tipo_item === 'aparelho') {
+                await stockService.addMovement({
+                    productId: item.tipo_item === 'produto' ? item.item_id : undefined,
+                    variationId: item.variacao_id,
+                    aparelhoId: item.tipo_item === 'aparelho' ? item.item_id : undefined,
+                    productName: item.item_nome + (item.variacao_nome ? ` (${item.variacao_nome})` : ''),
+                    type: 'saida',
+                    quantity: item.quantidade,
+                    reason: `Venda ${numero_venda}`,
+                    userName: 'Sistema', // Or fetch seller name
+                    salePrice: item.preco_unitario
+                }, true); // skipStockUpdate=true because it's handled above
             }
         }
 
@@ -245,6 +260,20 @@ export const salesService = {
 
                     if (devError) console.error('Erro ao retornar aparelho ao estoque:', devError);
                 }
+
+                // LOG MOVEMENT (Entrada due to cancellation)
+                if (item.tipo_item === 'produto' || item.tipo_item === 'aparelho') {
+                    await stockService.addMovement({
+                        productId: item.tipo_item === 'produto' ? item.item_id : undefined,
+                        variationId: item.variacao_id,
+                        aparelhoId: item.tipo_item === 'aparelho' ? item.item_id : undefined,
+                        productName: item.item_nome + (item.variacao_nome ? ` (${item.variacao_nome})` : ''),
+                        type: 'entrada',
+                        quantity: item.quantidade,
+                        reason: `Venda Excluída`,
+                        userName: 'Sistema'
+                    }, true);
+                }
             }
         }
 
@@ -314,6 +343,20 @@ export const salesService = {
                         .eq('id', item.item_id);
 
                     if (devError) console.error('Erro ao retornar aparelho ao estoque:', devError);
+                }
+
+                // LOG MOVEMENT (Entrada due to refund)
+                if (item.tipo_item === 'produto' || item.tipo_item === 'aparelho') {
+                    await stockService.addMovement({
+                        productId: item.tipo_item === 'produto' ? item.item_id : undefined,
+                        variationId: item.variacao_id,
+                        aparelhoId: item.tipo_item === 'aparelho' ? item.item_id : undefined,
+                        productName: item.item_nome + (item.variacao_nome ? ` (${item.variacao_nome})` : ''),
+                        type: 'entrada',
+                        quantity: item.quantidade,
+                        reason: `Reembolsada: ${reason}`,
+                        userName: 'Sistema'
+                    }, true);
                 }
             }
         }
