@@ -5,6 +5,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
 import { productService } from '../../services/productService';
 import { Product } from '../../types';
+import NumberInput from '../common/NumberInput';
 
 interface EmbalagemFormProps {
   onClose: () => void;
@@ -196,38 +197,34 @@ export const EmbalagemForm: React.FC<EmbalagemFormProps> = ({ onClose, onSave, e
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Largura</label>
-                  <input
-                    type="number"
-                    value={formData.largura}
-                    onChange={(e) => handleChange('largura', e.target.value)}
+                  <NumberInput
+                    value={Number(formData.largura) || 0}
+                    onChange={(val) => handleChange('largura', val)}
                     className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Altura</label>
-                  <input
-                    type="number"
-                    value={formData.altura}
-                    onChange={(e) => handleChange('altura', e.target.value)}
+                  <NumberInput
+                    value={Number(formData.altura) || 0}
+                    onChange={(val) => handleChange('altura', val)}
                     className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Profundidade</label>
-                  <input
-                    type="number"
-                    value={formData.profundidade}
-                    onChange={(e) => handleChange('profundidade', e.target.value)}
+                  <NumberInput
+                    value={Number(formData.profundidade) || 0}
+                    onChange={(val) => handleChange('profundidade', val)}
                     className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Mínimo para Alerta</label>
-                <input
-                  type="number"
-                  value={formData.estoque_minimo}
-                  onChange={(e) => handleChange('estoque_minimo', e.target.value)}
+                <NumberInput
+                  value={Number(formData.estoque_minimo) || 0}
+                  onChange={(val) => handleChange('estoque_minimo', val)}
                   className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50 text-amber-600 font-bold"
                 />
               </div>
@@ -239,20 +236,18 @@ export const EmbalagemForm: React.FC<EmbalagemFormProps> = ({ onClose, onSave, e
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Preço Unitário (R$)</label>
-                  <input
-                    type="number"
+                  <NumberInput
                     step="0.01"
-                    value={formData.preco_unitario_brl}
-                    onChange={(e) => handleChange('preco_unitario_brl', e.target.value)}
+                    value={Number(formData.preco_unitario_brl) || 0}
+                    onChange={(val) => handleChange('preco_unitario_brl', val)}
                     className="w-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50 font-bold"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Uni. por Pacote/Fardo</label>
-                  <input
-                    type="number"
-                    value={formData.unidades_por_pacote}
-                    onChange={(e) => handleChange('unidades_por_pacote', e.target.value)}
+                  <NumberInput
+                    value={Number(formData.unidades_por_pacote) || 0}
+                    onChange={(val) => handleChange('unidades_por_pacote', val)}
                     className="w-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
@@ -267,11 +262,10 @@ export const EmbalagemForm: React.FC<EmbalagemFormProps> = ({ onClose, onSave, e
                   <label className="block text-xs font-bold text-slate-100 opacity-0 mb-1">Preço Unitário (USD)</label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-slate-400 text-xs">$</span>
-                    <input
-                      type="number"
+                    <NumberInput
                       step="0.01"
-                      value={formData.preco_unitario_usd}
-                      onChange={(e) => handleChange('preco_unitario_usd', e.target.value)}
+                      value={Number(formData.preco_unitario_usd) || 0}
+                      onChange={(val) => handleChange('preco_unitario_usd', val)}
                       className="w-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-lg px-7 py-2 outline-none focus:ring-2 focus:ring-primary/50"
                       placeholder="0.00"
                     />
@@ -282,11 +276,10 @@ export const EmbalagemForm: React.FC<EmbalagemFormProps> = ({ onClose, onSave, e
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Custo Adicional (ex: Plástico Bolha interno)</label>
-                  <input
-                    type="number"
+                  <NumberInput
                     step="0.01"
-                    value={formData.custo_material_adicional}
-                    onChange={(e) => handleChange('custo_material_adicional', e.target.value)}
+                    value={Number(formData.custo_material_adicional) || 0}
+                    onChange={(val) => handleChange('custo_material_adicional', val)}
                     className="w-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>

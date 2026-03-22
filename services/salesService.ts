@@ -96,19 +96,18 @@ export const salesService = {
                     if (rpcError) console.error('Erro ao baixar estoque do produto:', rpcError);
                 }
             } else if (item.tipo_item === 'aparelho') {
-                // Mark device as Sold
+                // Mark device as Sold and ensure stock is 0
                 const { error: devError } = await supabase
                     .from('aparelhos')
                     .update({
                         status: 'Vendido',
+                        estoque: 0,
                         data_venda: saleData.created_at.split('T')[0]
                     })
                     .eq('id', item.item_id);
 
                 if (devError) {
                     console.error('Erro ao atualizar status do aparelho:', devError);
-                    // We don't necessarily want to fail the whole sale if just the status update fails, 
-                    // but it's good to log it. In this case, we'll throw to be safe and transparent.
                     throw new Error(`Erro ao atualizar aparelho: ${devError.message}`);
                 }
             }
@@ -239,6 +238,7 @@ export const salesService = {
                         .from('aparelhos')
                         .update({
                             status: 'Disponível',
+                            estoque: 1,
                             data_venda: null
                         })
                         .eq('id', item.item_id);
@@ -308,6 +308,7 @@ export const salesService = {
                         .from('aparelhos')
                         .update({
                             status: 'Disponível',
+                            estoque: 1,
                             data_venda: null
                         })
                         .eq('id', item.item_id);

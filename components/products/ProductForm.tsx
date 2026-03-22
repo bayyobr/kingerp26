@@ -365,22 +365,21 @@ const ProductForm: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Estoque</label>
-                                        <input
-                                            type="number"
-                                            value={newVariation.stock}
-                                            onChange={e => setNewVariation({ ...newVariation, stock: e.target.value })}
+                                        <NumberInput
+                                            value={Number(newVariation.stock) || 0}
+                                            onChange={val => setNewVariation({ ...newVariation, stock: val.toString() })}
                                             placeholder="Qtd"
                                             className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-border-dark bg-slate-50 dark:bg-surface-darker focus:outline-none focus:ring-2 focus:ring-primary/50"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Preço</label>
-                                        <input
-                                            type="number"
-                                            value={newVariation.price}
-                                            onChange={e => setNewVariation({ ...newVariation, price: e.target.value })}
+                                        <NumberInput
+                                            value={Number(newVariation.price) || 0}
+                                            onChange={val => setNewVariation({ ...newVariation, price: val.toString() })}
                                             placeholder="R$"
                                             className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-border-dark bg-slate-50 dark:bg-surface-darker focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                            step="0.01"
                                         />
                                     </div>
                                 </div>

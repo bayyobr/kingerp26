@@ -3,6 +3,7 @@ import { deviceService } from '../../services/deviceService';
 import { Aparelho, Checklist } from '../../types';
 import { INITIAL_CHECKLIST, CHECKLIST_LABELS } from '../../constants';
 import { formatCPF, formatPhone, formatCurrency } from '../../utils/formatters';
+import NumberInput from '../common/NumberInput';
 
 interface DeviceFormProps {
     onClose: () => void;
@@ -362,20 +363,12 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ onClose, deviceToEdit }) => {
                             </div>
                             <div className="flex flex-col">
                                 <label className="text-[14px] font-medium text-white mb-2 block">Saúde Bateria (%)</label>
-                                <input
-                                    type="number"
-                                    value={formData.estado_bateria || ''}
-                                    onChange={e => {
-                                        const rawValue = e.target.value.replace(/^0+/, '');
-                                        const val = rawValue === '' ? 0 : Number(rawValue);
-
-                                        if (val <= 100) {
-                                            handleChange('estado_bateria', val);
-                                        } else {
-                                            handleChange('estado_bateria', 100);
-                                        }
+                                <NumberInput
+                                    value={formData.estado_bateria || 0}
+                                    onChange={val => {
+                                        if (val <= 100) handleChange('estado_bateria', val);
+                                        else handleChange('estado_bateria', 100);
                                     }}
-                                    onFocus={e => e.target.select()}
                                     className="w-full bg-[#2a2f3a] border border-slate-700/50 rounded-lg h-[52px] px-4 text-white outline-none focus:ring-1 focus:ring-[#3b82f6] transition-all"
                                     min={0}
                                     max={100}
@@ -407,12 +400,13 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ onClose, deviceToEdit }) => {
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">R$</span>
                                     <input
                                         type="text"
-                                        value={formatCurrency(formData.preco_custo || 0)}
+                                        value={formData.preco_custo ? formatCurrency(formData.preco_custo) : ''}
                                         onChange={e => {
                                             const raw = e.target.value.replace(/\D/g, '');
                                             handleChange('preco_custo', raw ? Number(raw) / 100 : 0);
                                         }}
                                         onFocus={e => e.target.select()}
+                                        placeholder="R$ 0,00"
                                         className="w-full bg-[#2a2f3a] border border-slate-700/50 rounded-lg h-[48px] pl-10 pr-4 text-white font-bold outline-none focus:ring-1 focus:ring-[#3b82f6] transition-all"
                                     />
                                 </div>
@@ -423,12 +417,13 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ onClose, deviceToEdit }) => {
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#10b981] font-bold">R$</span>
                                     <input
                                         type="text"
-                                        value={formatCurrency(formData.preco_venda || 0)}
+                                        value={formData.preco_venda ? formatCurrency(formData.preco_venda) : ''}
                                         onChange={e => {
                                             const raw = e.target.value.replace(/\D/g, '');
                                             handleChange('preco_venda', raw ? Number(raw) / 100 : 0);
                                         }}
                                         onFocus={e => e.target.select()}
+                                        placeholder="R$ 0,00"
                                         className="w-full bg-[#2a2f3a] border border-slate-700/50 rounded-lg h-[48px] pl-10 pr-4 text-[#10b981] font-bold outline-none focus:ring-1 focus:ring-[#10b981] transition-all"
                                     />
                                 </div>
