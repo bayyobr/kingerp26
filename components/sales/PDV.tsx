@@ -43,7 +43,14 @@ const PDV: React.FC = () => {
     const [currentAmount, setCurrentAmount] = useState<number>(0);
     const [installments, setInstallments] = useState<number>(1);
     const [interestFee, setInterestFee] = useState<number>(0);
-    const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]);
+    const getLocalDateString = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const [saleDate, setSaleDate] = useState(getLocalDateString(new Date()));
 
     const getTimezoneOffsetString = () => {
         const tzo = -new Date().getTimezoneOffset();
@@ -379,7 +386,7 @@ const PDV: React.FC = () => {
             setCurrentMethod('');
             setSaleType('Retirada');
             setDeliveryFee(0);
-            setSaleDate(new Date().toISOString().split('T')[0]);
+            setSaleDate(getLocalDateString(new Date()));
             clearPDVDraft();
             loadData(); // Refresh stock
         } catch (error: any) {
