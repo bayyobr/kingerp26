@@ -140,9 +140,9 @@ export const stockService = {
             usd_quote: order.usdQuote,
             shipping_usd: order.shippingUsd,
             package_count: order.packageCount,
-            packages: order.packages,
+            packages: order.packages || [],
             factory_fee_usd: order.factoryFeeUsd,
-            products: order.products,
+            products: order.products || [],
             total_products_usd: order.totalProductsUsd,
             total_order_usd: order.totalOrderUsd,
             status: 'Concluído'
@@ -152,6 +152,36 @@ export const stockService = {
     },
 
     async getPurchaseOrders(): Promise<PurchaseOrder[]> {
+        // Auto-migration for existing local storage orders
+        try {
+            const localOrders = localStorage.getItem('purchase_orders');
+            if (localOrders) {
+                const parsed: PurchaseOrder[] = JSON.parse(localOrders);
+                if (parsed.length > 0) {
+                    console.log(`Migrating ${parsed.length} local orders to Supabase...`);
+                    for (const order of parsed) {
+                        await supabase.from('purchase_orders').insert({
+                            date: order.date,
+                            supplier: order.supplier,
+                            usd_quote: order.usdQuote,
+                            shipping_usd: order.shippingUsd,
+                            package_count: order.packageCount,
+                            packages: order.packages || [],
+                            factory_fee_usd: order.factoryFeeUsd,
+                            products: order.products || [],
+                            total_products_usd: order.totalProductsUsd,
+                            total_order_usd: order.totalOrderUsd,
+                            status: order.status || 'Concluído',
+                            created_at: order.createdAt
+                        });
+                    }
+                    localStorage.removeItem('purchase_orders');
+                }
+            }
+        } catch (e) {
+            console.error('Error during local orders migration:', e);
+        }
+
         const { data, error } = await supabase
             .from('purchase_orders')
             .select('*')
@@ -172,7 +202,8 @@ export const stockService = {
             packages: o.packages,
             factoryFeeUsd: Number(o.factory_fee_usd),
             products: o.products,
-            totalProductsUsd: Number(o.total_products_usd),
+            total_products_usd: Number(o.total_products_usd),
+            totalPriceUsd: Number(o.total_order_usd), // Temporary fallback or keep it consistent
             totalOrderUsd: Number(o.total_order_usd),
             status: o.status,
             createdAt: o.created_at
@@ -214,9 +245,9 @@ export const stockService = {
                 usd_quote: order.usdQuote,
                 shipping_usd: order.shippingUsd,
                 package_count: order.packageCount,
-                packages: order.packages,
+                packages: order.packages || [],
                 factory_fee_usd: order.factoryFeeUsd,
-                products: order.products,
+                products: order.products || [],
                 total_products_usd: order.totalProductsUsd,
                 total_order_usd: order.totalOrderUsd
             })
