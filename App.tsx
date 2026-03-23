@@ -175,6 +175,7 @@ const AppContent: React.FC = () => {
           <Route path="/cadastro/entradas" element={<PurchaseOrderList />} />
           <Route path="/cadastro/entrada-estoque" element={<PurchaseOrderList />} />
           <Route path="/cadastro/entradas/nova" element={<StockEntryForm />} />
+          <Route path="/cadastro/entradas/editar/:id" element={<StockEntryForm />} />
 
           <Route path="/estoque" element={<Inventory />} />
           <Route path="/agenda" element={<Agenda />} />

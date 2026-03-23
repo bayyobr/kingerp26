@@ -93,13 +93,22 @@ const PurchaseOrderList: React.FC = () => {
                       R$ {order.usdQuote.toFixed(2)}
                     </td>
                     <td className="p-4 text-center">
-                      <button
-                        onClick={() => generatePurchaseOrderPDF(order)}
-                        className="p-2 text-slate-400 hover:text-white hover:bg-[#2b333c] rounded-lg transition-colors"
-                        title="Baixar PDF"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => navigate(`/cadastro/entradas/editar/${order.id}`)}
+                          className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"
+                          title="Editar Entrada"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">edit</span>
+                        </button>
+                        <button
+                          onClick={() => generatePurchaseOrderPDF(order)}
+                          className="p-2 text-slate-400 hover:text-white hover:bg-[#2b333c] rounded-lg transition-colors"
+                          title="Baixar PDF"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

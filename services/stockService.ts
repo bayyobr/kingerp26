@@ -164,5 +164,29 @@ export const stockService = {
             console.error('Failed to parse purchase orders', e);
             return [];
         }
+    },
+
+    async getPurchaseOrderById(id: string): Promise<PurchaseOrder | null> {
+        const orders = await this.getPurchaseOrders();
+        return orders.find(o => o.id === id) || null;
+    },
+
+    async updatePurchaseOrder(id: string, updatedOrder: Omit<PurchaseOrder, 'id' | 'createdAt' | 'status'>): Promise<void> {
+        const ORDERS_KEY = 'purchase_orders';
+        const storedOrders = localStorage.getItem(ORDERS_KEY);
+        let orders: PurchaseOrder[] = storedOrders ? JSON.parse(storedOrders) : [];
+        
+        const index = orders.findIndex(o => o.id === id);
+        if (index !== -1) {
+            orders[index] = {
+                ...orders[index],
+                ...updatedOrder,
+                id, // Keep original ID
+                status: orders[index].status // Keep original status
+            };
+            localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+        } else {
+            throw new Error(`Ordem de compra ${id} não encontrada.`);
+        }
     }
 };

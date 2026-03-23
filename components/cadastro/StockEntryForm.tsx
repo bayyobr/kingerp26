@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Product, PurchaseOrder, PurchaseOrderProduct, PurchaseOrderPackage } from '../../types';
 import { productService } from '../../services/productService';
 import { stockService } from '../../services/stockService';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
 
 const StockEntryForm: React.FC = () => {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEditing = !!id;
+  
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,16 +34,13 @@ const StockEntryForm: React.FC = () => {
   const [factoryFeeUsd, setFactoryFeeUsd] = useState<number | ''>('');
 
   useEffect(() => {
-    loadDbProducts();
-  }, []);
-
-  useEffect(() => {
-    if (rate && !usdQuote) {
+    if (rate && !usdQuote && !isEditing) {
       setUsdQuote(rate);
     }
-  }, [rate, usdQuote]);
+  }, [rate, usdQuote, isEditing]);
 
   useEffect(() => {
+    if (isEditing) return;
     const count = Number(packageCount) || 0;
     setPackages(prev => {
       if (prev.length === count) return prev;
@@ -53,7 +53,68 @@ const StockEntryForm: React.FC = () => {
       }));
       return [...prev, ...newPacks];
     });
-  }, [packageCount]);
+  }, [packageCount, isEditing]);
+
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      await loadDbProducts();
+      if (isEditing) {
+        await loadOrder();
+      }
+      setLoading(false);
+    };
+    init();
+  }, [id]);
+
+  const loadOrder = async () => {
+    try {
+      const order = await stockService.getPurchaseOrderById(id!);
+      if (order) {
+        setDate(order.date);
+        setSupplier(order.supplier);
+        setUsdQuote(order.usdQuote);
+        setShippingUsd(order.shippingUsd);
+        setPackageCount(order.packageCount);
+        setPackages(order.packages);
+        setFactoryFeeUsd(order.factoryFeeUsd);
+
+        // Group variations back for the UI
+        // We need to group items by productId
+        const groupedMap: { [productId: string]: any } = {};
+        const simpleProducts: any[] = [];
+
+        order.products.forEach(p => {
+          if (p.productId && p.variationId) {
+            if (!groupedMap[p.productId]) {
+              groupedMap[p.productId] = {
+                id: `p_edit_${p.productId}`,
+                productId: p.productId,
+                productName: p.productName,
+                unitPriceUsd: p.unitPriceUsd,
+                quantity: 0,
+                totalProductUsd: 0,
+                variationsQuantities: {}
+              };
+            }
+            groupedMap[p.productId].variationsQuantities[p.variationId] = p.quantity;
+            groupedMap[p.productId].quantity += p.quantity;
+            groupedMap[p.productId].totalProductUsd += p.totalProductUsd;
+          } else {
+            simpleProducts.push({
+              ...p,
+              id: p.id || `p_${Date.now()}_${Math.random()}`
+            });
+          }
+        });
+
+        setProductsList([...Object.values(groupedMap), ...simpleProducts]);
+      }
+    } catch (error) {
+      console.error('Failed to load order', error);
+      alert('Erro ao carregar os dados para edição.');
+    }
+  };
 
   const loadDbProducts = async () => {
     try {
@@ -61,8 +122,6 @@ const StockEntryForm: React.FC = () => {
       setDbProducts(data);
     } catch (error) {
       console.error('Failed to load products', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -215,12 +274,17 @@ const StockEntryForm: React.FC = () => {
         totalOrderUsd
       };
 
-      await stockService.registerPurchaseOrder(orderPayload);
-      alert('Entrada Avançada registrada com sucesso!');
+      if (isEditing) {
+        await stockService.updatePurchaseOrder(id!, orderPayload);
+        alert('Entrada Avançada atualizada com sucesso!');
+      } else {
+        await stockService.registerPurchaseOrder(orderPayload);
+        alert('Entrada Avançada registrada com sucesso!');
+      }
       navigate('/cadastro/entradas');
     } catch (error) {
       console.error(error);
-      alert('Erro ao registrar a entrada avançada.');
+      alert(`Erro ao ${isEditing ? 'atualizar' : 'registrar'} a entrada avançada.`);
     } finally {
       setSaving(false);
     }
@@ -238,12 +302,15 @@ const StockEntryForm: React.FC = () => {
     <div className="p-6">
       <div className="flex items-center gap-3 mb-6">
         <button 
-          onClick={() => navigate(-1)}
-          className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"
+          onClick={() => navigate('/cadastro/entradas')}
+          className="p-2 text-slate-400 hover:text-white hover:bg-[#1e242b] rounded-lg transition-colors"
+          title="Voltar"
         >
-          <span className="material-symbols-outlined">arrow_back</span>
+          <span className="material-symbols-outlined text-[20px]">arrow_back</span>
         </button>
-        <h1 className="text-2xl font-bold text-white">Entrada de Estoque Avançada (Importação)</h1>
+        <h1 className="text-2xl font-bold text-white uppercase tracking-tight">
+          {isEditing ? 'Editar Entrada de Estoque' : 'Nova Entrada de Estoque'} Avançada (Importação)
+        </h1>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -581,11 +648,10 @@ const StockEntryForm: React.FC = () => {
                   <span className="material-symbols-outlined text-[20px]">check_circle</span>
                   Gravar Entrada Total
                 </>
-              )}
-            </button>
+            )}
+      </button>
           </div>
         </div>
-
       </form>
     </div>
   );
