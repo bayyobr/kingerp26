@@ -93,18 +93,39 @@ const StockEntryForm: React.FC = () => {
       if (p.id !== id) return p;
       const updated = { ...p, [field]: value };
       
-      // Auto-set productName if productId is selected
+      // Auto-set productName and variations if productId is selected
       if (field === 'productId') {
         const dbProduct = dbProducts.find(x => x.id === value);
         if (dbProduct) {
           updated.productName = dbProduct.name;
-          updated.variationId = ''; // Reset variation on product change
+          updated.variationId = ''; 
           updated.variationName = '';
+          // Initialize variations quantities
+          if (dbProduct.variations && dbProduct.variations.length > 0) {
+            updated.variationsQuantities = dbProduct.variations.reduce((acc: any, v: any) => ({ ...acc, [v.id]: 0 }), {});
+          } else {
+            updated.variationsQuantities = undefined;
+          }
         } else {
           updated.productName = ''; // Cleared selection
           updated.variationId = '';
           updated.variationName = '';
+          updated.variationsQuantities = undefined;
         }
+      }
+
+      // Handle variation quantity change
+      if (field.startsWith('var_')) {
+        const varId = field.split('var_')[1];
+        updated.variationsQuantities = {
+          ...updated.variationsQuantities,
+          [varId]: Number(value) || 0
+        };
+      }
+
+      // Recalculate quantity for grouped variations
+      if (updated.variationsQuantities) {
+        updated.quantity = Object.values(updated.variationsQuantities).reduce((sum: number, q: any) => sum + (Number(q) || 0), 0);
       }
 
       updated.totalProductUsd = (Number(updated.quantity) || 0) * (Number(updated.unitPriceUsd) || 0);
@@ -126,21 +147,60 @@ const StockEntryForm: React.FC = () => {
       alert("Preencha Fornecedor e Cotação do Dólar.");
       return;
     }
-    if (productsList.length === 0 || productsList.some(p => !p.productName || Number(p.quantity) <= 0 || Number(p.unitPriceUsd) <= 0)) {
-      alert("Revise a lista de produtos. Todos devem ter nome, quantidade > 0 e valor > 0.");
+    
+    // Check if there are any products with at least some quantity
+    const hasProducts = productsList.some(p => (Number(p.quantity) || 0) > 0);
+    if (!hasProducts) {
+       alert("Sua lista de produtos está vazia ou sem quantidades preenchidas.");
+       return;
+    }
+
+    if (productsList.some(p => !p.productName || (Number(p.quantity) > 0 && Number(p.unitPriceUsd) <= 0))) {
+      alert("Revise a lista de produtos. Todos os produtos com quantidade devem ter nome e valor unitário > 0.");
       return;
     }
 
     try {
       setSaving(true);
       
-      // Prepare the final products array with calculated proportional BRL unit cost
-      const finalProducts: PurchaseOrderProduct[] = productsList.map(p => ({
-        ...p,
-        quantity: Number(p.quantity) || 0,
-        unitPriceUsd: Number(p.unitPriceUsd) || 0,
-        finalUnitCostBrl: getProductFinalUnitBrl(p)
-      }));
+      // EXPLODE variations into individual PurchaseOrderProduct entries
+      const finalProducts: PurchaseOrderProduct[] = [];
+      
+      productsList.forEach(p => {
+        if (p.variationsQuantities) {
+          // It's a product with variations
+          const dbProduct = dbProducts.find(x => x.id === p.productId);
+          const productUnitCostBrl = getProductFinalUnitBrl(p); // This is unit cost including fees, assuming price is same for all variations
+
+          Object.entries(p.variationsQuantities).forEach(([vId, qty]) => {
+            const quantity = Number(qty) || 0;
+            if (quantity > 0) {
+              const variationName = dbProduct?.variations?.find((v: any) => v.id === vId)?.name || 'Opção';
+              finalProducts.push({
+                id: `p_${Date.now()}_${vId}`,
+                productId: p.productId,
+                productName: p.productName,
+                variationId: vId,
+                variationName: variationName,
+                quantity: quantity,
+                unitPriceUsd: Number(p.unitPriceUsd) || 0,
+                totalProductUsd: quantity * (Number(p.unitPriceUsd) || 0),
+                finalUnitCostBrl: productUnitCostBrl
+              });
+            }
+          });
+        } else {
+          // Simple product
+          if ((Number(p.quantity) || 0) > 0) {
+            finalProducts.push({
+              ...p,
+              quantity: Number(p.quantity) || 0,
+              unitPriceUsd: Number(p.unitPriceUsd) || 0,
+              finalUnitCostBrl: getProductFinalUnitBrl(p)
+            });
+          }
+        }
+      });
 
       const orderPayload: Omit<PurchaseOrder, 'id' | 'createdAt' | 'status'> = {
         date,
@@ -265,103 +325,116 @@ const StockEntryForm: React.FC = () => {
               const finalUnitBrl = getProductFinalUnitBrl(p);
               const selectedProduct = dbProducts.find(db => db.id === p.productId);
               const variations = selectedProduct?.variations || [];
+              const hasVariations = variations.length > 0;
               
               return (
-                <div key={p.id} className="grid grid-cols-12 gap-4 items-end p-4 border border-[#1e242b] rounded-lg bg-[#0e1217] relative group">
-                  <div className="col-span-12 md:col-span-3 flex flex-col gap-1">
-                    <label className="text-xs font-medium text-slate-400">Produto Existente</label>
-                    <select
-                      value={p.productId || ''}
-                      onChange={e => handleProductChange(p.id, 'productId', e.target.value)}
-                      className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
-                    >
-                      <option value="">(Produto Novo - Digite abaixo)</option>
-                      {dbProducts.map(db => (
-                        <option key={db.id} value={db.id}>{db.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {/* Variation Select */}
-                  <div className="col-span-12 md:col-span-2 flex flex-col gap-1">
-                    <label className="text-xs font-medium text-slate-400">Variação/Cor</label>
-                    <select
-                      value={p.variationId || ''}
-                      onChange={e => {
-                        const vId = e.target.value;
-                        const vName = variations.find(v => v.id === vId)?.name || '';
-                        handleProductChange(p.id, 'variationId', vId);
-                        handleProductChange(p.id, 'variationName', vName);
-                      }}
-                      disabled={!p.productId || variations.length === 0}
-                      className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm disabled:opacity-30"
-                    >
-                      <option value="">Nenhuma / Cor Padrão</option>
-                      {variations.map(v => (
-                        <option key={v.id} value={v.id}>{v.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div key={p.id} className="p-4 border border-[#1e242b] rounded-lg bg-[#0e1217] relative group flex flex-col gap-4">
+                  <div className="grid grid-cols-12 gap-4 items-end">
+                    <div className="col-span-12 md:col-span-4 flex flex-col gap-1">
+                      <label className="text-xs font-medium text-slate-400">Produto Existente</label>
+                      <select
+                        value={p.productId || ''}
+                        onChange={e => handleProductChange(p.id, 'productId', e.target.value)}
+                        className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
+                      >
+                        <option value="">(Produto Novo - Digite abaixo)</option>
+                        {dbProducts.map(db => (
+                          <option key={db.id} value={db.id}>{db.name}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div className="col-span-12 md:col-span-4 flex flex-col gap-1">
-                    <label className="text-xs font-medium text-slate-400">Nome (Novo ou Existente)</label>
-                    <input
-                      type="text"
-                      value={p.productName}
-                      onChange={e => handleProductChange(p.id, 'productName', e.target.value)}
-                      disabled={!!p.productId}
-                      placeholder={p.productId ? "Nome Automático" : "Digite o nome"}
-                      className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm disabled:opacity-50"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="col-span-4 md:col-span-1 flex flex-col gap-1">
-                    <label className="text-xs font-medium text-slate-400">Qtd</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={p.quantity}
-                      onChange={e => handleProductChange(p.id, 'quantity', e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
-                      required
-                    />
-                  </div>
-                  <div className="col-span-4 md:col-span-2 flex flex-col gap-1">
-                    <label className="text-xs font-medium text-slate-400">Unitário (USD)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
+                    <div className="col-span-12 md:col-span-4 flex flex-col gap-1">
+                      <label className="text-xs font-medium text-slate-400">Nome (Novo ou Existente)</label>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={p.unitPriceUsd}
-                        onChange={e => handleProductChange(p.id, 'unitPriceUsd', e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
+                        type="text"
+                        value={p.productName}
+                        onChange={e => handleProductChange(p.id, 'productName', e.target.value)}
+                        disabled={!!p.productId}
+                        placeholder={p.productId ? "Nome Automático" : "Digite o nome"}
+                        className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm disabled:opacity-50"
                         required
                       />
                     </div>
+                    
+                    <div className="col-span-6 md:col-span-3 flex flex-col gap-1">
+                      <label className="text-xs font-medium text-slate-400">Valor Unitário (USD)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={p.unitPriceUsd}
+                          onChange={e => handleProductChange(p.id, 'unitPriceUsd', e.target.value === '' ? '' : Number(e.target.value))}
+                          className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="col-span-6 md:col-span-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removeProductRow(p.id)}
+                        className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Remover Produto"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">delete</span>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="col-span-12 md:col-span-1 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => removeProductRow(p.id)}
-                      className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                      title="Remover"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">delete</span>
-                    </button>
-                  </div>
-                  
-                  {/* Proportional Display */}
-                  <div className="col-span-12 mt-2 pt-2 border-t border-[#1e242b] flex items-center justify-between text-xs text-slate-500">
-                    <div className="flex gap-4">
-                      <span>Custo Final Projetado c/ Taxas: <strong className="text-emerald-400">R$ {finalUnitBrl.toFixed(2)} / un</strong></span>
-                      <span>Total Produto: <strong className="text-blue-400">US$ {p.totalProductUsd.toFixed(2)}</strong></span>
+                  {/* Variations Quantities Area */}
+                  {hasVariations && p.productId && (
+                    <div className="bg-[#1e242b]/30 p-4 rounded-lg border border-[#2b333c]/50">
+                      <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[16px]">palette</span>
+                        Quantidades por Variação
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        {variations.map(v => (
+                          <div key={v.id} className="flex flex-col gap-1">
+                            <label className="text-[11px] font-medium text-slate-400 truncate" title={v.name}>
+                              {v.name}
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={p.variationsQuantities?.[v.id] ?? 0}
+                              onChange={e => handleProductChange(p.id, `var_${v.id}`, e.target.value)}
+                              placeholder="0"
+                              className="w-full bg-[#0e1217] border border-[#2b333c] text-white px-2 py-1.5 rounded-md focus:outline-none focus:border-blue-500 text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    {p.productId && <div className="text-yellow-500 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">warning</span> Atualizará o custo do banco</div>}
-                    {!p.productId && <div className="text-blue-400 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">info</span> Ficará apenas no histórico</div>}
+                  )}
+
+                  {!hasVariations && (
+                    <div className="flex flex-col gap-1 max-w-[120px]">
+                      <label className="text-xs font-medium text-slate-400">Quantidade Total</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={p.quantity}
+                        onChange={e => handleProductChange(p.id, 'quantity', e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
+                        required={!hasVariations}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Proportional Display & Summary */}
+                  <div className="pt-2 border-t border-[#1e242b] flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex flex-wrap gap-x-6 gap-y-1">
+                      <span>Qtd Total: <strong className="text-white">{p.quantity}</strong></span>
+                      <span>Total Produto: <strong className="text-blue-400">US$ {p.totalProductUsd.toFixed(2)}</strong></span>
+                      <span>Custo Final Unitário (Proj.): <strong className="text-emerald-400">R$ {finalUnitBrl.toFixed(2)}</strong></span>
+                    </div>
+                    {p.productId && <div className="text-yellow-500 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">warning</span> Atualizará estoque no banco</div>}
+                    {!p.productId && <div className="text-blue-400 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">info</span> Apenas registro histórico</div>}
                   </div>
                 </div>
               );
