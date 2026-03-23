@@ -79,7 +79,7 @@ const Dashboard: React.FC = () => {
                 end.setDate(end.getDate() - 1);
                 break;
             case 'week':
-                start.setDate(end.getDate() - end.getDay());
+                start.setDate(end.getDate() - 6);
                 break;
             case 'month':
                 start.setDate(1);

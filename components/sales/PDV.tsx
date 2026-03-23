@@ -339,7 +339,8 @@ const PDV: React.FC = () => {
                         nome: clientName,
                         cpf: clientCpf,
                         telefone: clientPhone,
-                        is_vip_manual: false
+                        is_vip_manual: false,
+                        created_at: `${saleDate}T${new Date().toLocaleTimeString('sv-SE')}${getTimezoneOffsetString()}`
                     });
                     // Note: In a production app, we'd handle errors and update the local clients state
                 }
@@ -386,7 +387,6 @@ const PDV: React.FC = () => {
             setCurrentMethod('');
             setSaleType('Retirada');
             setDeliveryFee(0);
-            setSaleDate(getLocalDateString(new Date()));
             clearPDVDraft();
             loadData(); // Refresh stock
         } catch (error: any) {
