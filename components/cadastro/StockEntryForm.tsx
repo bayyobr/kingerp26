@@ -433,7 +433,7 @@ const StockEntryForm: React.FC = () => {
                       <span>Total Produto: <strong className="text-blue-400">US$ {p.totalProductUsd.toFixed(2)}</strong></span>
                       <span>Custo Final Unitário (Proj.): <strong className="text-emerald-400">R$ {finalUnitBrl.toFixed(2)}</strong></span>
                     </div>
-                    {p.productId && <div className="text-yellow-500 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">warning</span> Atualizará estoque no banco</div>}
+                    {p.productId && <div className="text-blue-400 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">info</span> Registro apenas p/ histórico e recibo</div>}
                     {!p.productId && <div className="text-blue-400 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">info</span> Apenas registro histórico</div>}
                   </div>
                 </div>
