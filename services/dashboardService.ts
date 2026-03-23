@@ -147,28 +147,42 @@ export const dashboardService = {
         let totalSalesCost = 0;
         if (sales.data && sales.data.length > 0) {
             const allItems = sales.data.flatMap((s: any) => s.items || []);
-            const productIds = allItems.filter(i => i.tipo_item === 'produto').map(i => i.item_id);
-            const aparelhoIds = allItems.filter(i => i.tipo_item === 'aparelho').map(i => i.item_id);
+            const productIds = Array.from(new Set(allItems.filter(i => i.tipo_item === 'produto').map(i => i.item_id)));
+            const aparelhoIds = Array.from(new Set(allItems.filter(i => i.tipo_item === 'aparelho').map(i => i.item_id)));
 
             const [prods, devs, embalagens] = await Promise.all([
-                productIds.length > 0 ? supabase.from('products').select('id, cost_price').in('id', productIds) : Promise.resolve({ data: [] }),
+                productIds.length > 0 ? supabase.from('products').select('id, cost_price, category').in('id', productIds) : Promise.resolve({ data: [] }),
                 aparelhoIds.length > 0 ? supabase.from('aparelhos').select('id, preco_custo').in('id', aparelhoIds) : Promise.resolve({ data: [] }),
-                supabase.from('embalagens').select('produto_id, preco_unitario_brl, custo_material_adicional').not('produto_id', 'is', null)
+                supabase.from('embalagens').select('id, preco_unitario_brl, custo_material_adicional, vinculos:embalagem_vinculos(*)')
             ]);
 
-            const productCosts = (prods.data || []).reduce((acc: any, p: any) => ({ ...acc, [p.id]: Number(p.cost_price || 0) }), {});
+            const productMap = (prods.data || []).reduce((acc: any, p: any) => ({ ...acc, [p.id]: p }), {});
             const deviceCosts = (devs.data || []).reduce((acc: any, d: any) => ({ ...acc, [d.id]: Number(d.preco_custo || 0) }), {});
             
-            // Map product_id to packaging cost
-            const packagingCosts = (embalagens.data || []).reduce((acc: any, e: any) => ({ 
-                ...acc, 
-                [e.produto_id]: Number(e.preco_unitario_brl || 0) + Number(e.custo_material_adicional || 0) 
-            }), {});
+            // Build a list of active packagings with links
+            const activeEmbalagens = (embalagens.data || []).filter(e => e.vinculos && e.vinculos.length > 0);
 
             allItems.forEach((item: any) => {
-                const pkgCost = packagingCosts[item.item_id] || 0;
                 if (item.tipo_item === 'produto') {
-                    totalSalesCost += ((productCosts[item.item_id] || 0) + pkgCost) * item.quantidade;
+                    const prodInfo = productMap[item.item_id];
+                    const baseCost = Number(prodInfo?.cost_price || 0);
+                    
+                    // Calculate packaging cost for this item
+                    let itemPkgCost = 0;
+                    activeEmbalagens.forEach(emb => {
+                        const matchingVinculos = emb.vinculos.filter((v: any) => 
+                            (v.tipo_vinculo === 'produto' && v.vinculo_id === item.item_id) ||
+                            (v.tipo_vinculo === 'categoria' && prodInfo && v.vinculo_id === prodInfo.category)
+                        );
+                        
+                        const totalEmbQty = matchingVinculos.reduce((sum: number, v: any) => sum + Number(v.quantidade || 0), 0);
+                        if (totalEmbQty > 0) {
+                            const unitCost = Number(emb.preco_unitario_brl || 0) + Number(emb.custo_material_adicional || 0);
+                            itemPkgCost += unitCost * totalEmbQty;
+                        }
+                    });
+
+                    totalSalesCost += (baseCost + itemPkgCost) * item.quantidade;
                 } else if (item.tipo_item === 'aparelho') {
                     totalSalesCost += (deviceCosts[item.item_id] || 0) * item.quantidade;
                 }

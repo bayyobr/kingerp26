@@ -298,6 +298,14 @@ export interface ClientCampaign {
 }
 
 // Packaging Interfaces
+export interface EmbalagemVinculo {
+  id: string;
+  embalagem_id: string;
+  tipo_vinculo: 'produto' | 'categoria';
+  vinculo_id: string;
+  quantidade: number;
+}
+
 export interface Embalagem {
   id: string;
   nome: string;
@@ -313,7 +321,7 @@ export interface Embalagem {
   preco_unitario_brl: number;
   unidades_por_pacote: number;
   custo_material_adicional: number;
-  produto_id?: string | null;
+  vinculos?: EmbalagemVinculo[];
   created_at?: string;
 }
 

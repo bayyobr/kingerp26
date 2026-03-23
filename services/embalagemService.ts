@@ -5,7 +5,7 @@ export const embalagemService = {
   async getAll(): Promise<Embalagem[]> {
     const { data, error } = await supabase
       .from('embalagens')
-      .select('*')
+      .select('*, vinculos:embalagem_vinculos(*)')
       .order('nome', { ascending: true });
 
     if (error) throw error;
@@ -15,7 +15,7 @@ export const embalagemService = {
   async getById(id: string): Promise<Embalagem> {
     const { data, error } = await supabase
       .from('embalagens')
-      .select('*')
+      .select('*, vinculos:embalagem_vinculos(*)')
       .eq('id', id)
       .single();
 
@@ -24,26 +24,59 @@ export const embalagemService = {
   },
 
   async create(embalagem: Omit<Embalagem, 'id' | 'estoque_atual'>): Promise<Embalagem> {
-    const { data, error } = await supabase
+    const { vinculos, ...header } = embalagem as any;
+    
+    const { data: saleData, error: saleError } = await supabase
       .from('embalagens')
-      .insert({ ...embalagem, estoque_atual: 0 })
+      .insert({ ...header, estoque_atual: 0 })
       .select()
       .single();
 
-    if (error) throw error;
-    return data;
+    if (saleError) throw saleError;
+    
+    if (vinculos && vinculos.length > 0) {
+      const links = vinculos.map((v: any) => ({
+        embalagem_id: saleData.id,
+        tipo_vinculo: v.tipo_vinculo,
+        vinculo_id: v.vinculo_id,
+        quantidade: v.quantidade
+      }));
+      const { error: linksError } = await supabase.from('embalagem_vinculos').insert(links);
+      if (linksError) throw linksError;
+    }
+
+    return { ...saleData, vinculos: vinculos || [] };
   },
 
   async update(id: string, updates: Partial<Embalagem>): Promise<Embalagem> {
-    const { data, error } = await supabase
+    const { vinculos, ...header } = updates as any;
+
+    const { data: saleData, error: saleError } = await supabase
       .from('embalagens')
-      .update(updates)
+      .update(header)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw error;
-    return data;
+    if (saleError) throw saleError;
+
+    if (vinculos !== undefined) {
+      // Refresh links: Delete old and insert new (simple pattern)
+      await supabase.from('embalagem_vinculos').delete().eq('embalagem_id', id);
+      
+      if (vinculos.length > 0) {
+        const links = vinculos.map((v: any) => ({
+          embalagem_id: id,
+          tipo_vinculo: v.tipo_vinculo,
+          vinculo_id: v.vinculo_id,
+          quantidade: v.quantidade
+        }));
+        const { error: linksError } = await supabase.from('embalagem_vinculos').insert(links);
+        if (linksError) throw linksError;
+      }
+    }
+
+    return { ...saleData, vinculos: vinculos || [] };
   },
 
   async addMovement(movement: Omit<EmbalagemMovimentacao, 'id'>): Promise<EmbalagemMovimentacao> {
