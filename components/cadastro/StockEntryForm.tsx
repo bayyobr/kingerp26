@@ -98,8 +98,12 @@ const StockEntryForm: React.FC = () => {
         const dbProduct = dbProducts.find(x => x.id === value);
         if (dbProduct) {
           updated.productName = dbProduct.name;
+          updated.variationId = ''; // Reset variation on product change
+          updated.variationName = '';
         } else {
           updated.productName = ''; // Cleared selection
+          updated.variationId = '';
+          updated.variationName = '';
         }
       }
 
@@ -259,6 +263,8 @@ const StockEntryForm: React.FC = () => {
           <div className="flex flex-col gap-4">
             {productsList.map((p, index) => {
               const finalUnitBrl = getProductFinalUnitBrl(p);
+              const selectedProduct = dbProducts.find(db => db.id === p.productId);
+              const variations = selectedProduct?.variations || [];
               
               return (
                 <div key={p.id} className="grid grid-cols-12 gap-4 items-end p-4 border border-[#1e242b] rounded-lg bg-[#0e1217] relative group">
@@ -275,7 +281,29 @@ const StockEntryForm: React.FC = () => {
                       ))}
                     </select>
                   </div>
-                  <div className="col-span-12 md:col-span-3 flex flex-col gap-1">
+                  
+                  {/* Variation Select */}
+                  <div className="col-span-12 md:col-span-2 flex flex-col gap-1">
+                    <label className="text-xs font-medium text-slate-400">Variação/Cor</label>
+                    <select
+                      value={p.variationId || ''}
+                      onChange={e => {
+                        const vId = e.target.value;
+                        const vName = variations.find(v => v.id === vId)?.name || '';
+                        handleProductChange(p.id, 'variationId', vId);
+                        handleProductChange(p.id, 'variationName', vName);
+                      }}
+                      disabled={!p.productId || variations.length === 0}
+                      className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 text-sm disabled:opacity-30"
+                    >
+                      <option value="">Nenhuma / Cor Padrão</option>
+                      {variations.map(v => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-span-12 md:col-span-4 flex flex-col gap-1">
                     <label className="text-xs font-medium text-slate-400">Nome (Novo ou Existente)</label>
                     <input
                       type="text"
@@ -287,6 +315,7 @@ const StockEntryForm: React.FC = () => {
                       required
                     />
                   </div>
+                  
                   <div className="col-span-4 md:col-span-1 flex flex-col gap-1">
                     <label className="text-xs font-medium text-slate-400">Qtd</label>
                     <input
@@ -313,12 +342,6 @@ const StockEntryForm: React.FC = () => {
                       />
                     </div>
                   </div>
-                  <div className="col-span-4 md:col-span-2 flex flex-col gap-1">
-                    <label className="text-xs font-medium text-slate-400">Total Produto</label>
-                    <div className="bg-[#1e242b]/50 border border-[#2b333c] text-blue-400 font-bold px-3 py-2 rounded-lg text-sm text-right">
-                      US$ {p.totalProductUsd.toFixed(2)}
-                    </div>
-                  </div>
 
                   <div className="col-span-12 md:col-span-1 flex justify-end">
                     <button
@@ -333,8 +356,9 @@ const StockEntryForm: React.FC = () => {
                   
                   {/* Proportional Display */}
                   <div className="col-span-12 mt-2 pt-2 border-t border-[#1e242b] flex items-center justify-between text-xs text-slate-500">
-                    <div>
-                      Custo Final Projetado c/ Taxas: <strong className="text-emerald-400">R$ {finalUnitBrl.toFixed(2)} / un</strong>
+                    <div className="flex gap-4">
+                      <span>Custo Final Projetado c/ Taxas: <strong className="text-emerald-400">R$ {finalUnitBrl.toFixed(2)} / un</strong></span>
+                      <span>Total Produto: <strong className="text-blue-400">US$ {p.totalProductUsd.toFixed(2)}</strong></span>
                     </div>
                     {p.productId && <div className="text-yellow-500 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">warning</span> Atualizará o custo do banco</div>}
                     {!p.productId && <div className="text-blue-400 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">info</span> Ficará apenas no histórico</div>}

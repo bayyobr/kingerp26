@@ -221,6 +221,8 @@ export interface PurchaseOrderProduct {
   id: string;
   productId?: string; // If empty, it's just a text entry
   productName: string;
+  variationId?: string | null;
+  variationName?: string | null;
   quantity: number;
   unitPriceUsd: number;
   totalProductUsd: number;

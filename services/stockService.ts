@@ -155,6 +155,7 @@ export const stockService = {
                 const { data: userData } = await supabase.auth.getUser();
                 await supabase.from('stock_movements').insert({
                     product_id: product.productId,
+                    variation_id: product.variationId,
                     product_name: product.productName,
                     type: 'entrada',
                     quantity: product.quantity,
@@ -168,20 +169,38 @@ export const stockService = {
                 try {
                     const { data: currentProduct, error: fetchErr } = await supabase
                         .from('products')
-                        .select('stock_quantity')
+                        .select('stock_quantity, variations')
                         .eq('id', product.productId)
                         .single();
 
                     if (!fetchErr && currentProduct) {
-                        const newStock = currentProduct.stock_quantity + product.quantity;
-                        
-                        await supabase
-                            .from('products')
-                            .update({ 
-                                stock_quantity: newStock,
-                                cost_price: product.finalUnitCostBrl
-                            })
-                            .eq('id', product.productId);
+                        if (product.variationId) {
+                            // Update specific variation stock
+                            const variations = currentProduct.variations || [];
+                            const index = variations.findIndex((v: any) => v.id === product.variationId);
+                            if (index !== -1) {
+                                variations[index].stock += product.quantity;
+                                
+                                // Total stock is sum of variations
+                                const totalStock = variations.reduce((acc: number, v: any) => acc + (v.stock || 0), 0);
+                                
+                                await supabase.from('products').update({ 
+                                    variations, 
+                                    stock_quantity: totalStock,
+                                    cost_price: product.finalUnitCostBrl // Update cost price as well
+                                }).eq('id', product.productId);
+                            }
+                        } else {
+                            // Simple product update
+                            const newStock = currentProduct.stock_quantity + product.quantity;
+                            await supabase
+                                .from('products')
+                                .update({ 
+                                    stock_quantity: newStock,
+                                    cost_price: product.finalUnitCostBrl
+                                })
+                                .eq('id', product.productId);
+                        }
                     }
                 } catch (err) {
                     console.error('Error updating existing product stock/price:', err);
