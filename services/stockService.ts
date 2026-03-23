@@ -134,59 +134,94 @@ export const stockService = {
 
     // Add Advanced Purchase Order
     async registerPurchaseOrder(order: Omit<PurchaseOrder, 'id' | 'createdAt' | 'status'>): Promise<void> {
-        const newOrder: PurchaseOrder = {
-            ...order,
-            id: `po_${Date.now()}`,
-            createdAt: new Date().toISOString(),
+        const { error } = await supabase.from('purchase_orders').insert({
+            date: order.date,
+            supplier: order.supplier,
+            usd_quote: order.usdQuote,
+            shipping_usd: order.shippingUsd,
+            package_count: order.packageCount,
+            packages: order.packages,
+            factory_fee_usd: order.factoryFeeUsd,
+            products: order.products,
+            total_products_usd: order.totalProductsUsd,
+            total_order_usd: order.totalOrderUsd,
             status: 'Concluído'
-        };
+        });
 
-        // 1. Save the full order to local storage (MVP DB for orders)
-        const ORDERS_KEY = 'purchase_orders';
-        const storedOrders = localStorage.getItem(ORDERS_KEY);
-        const orders: PurchaseOrder[] = storedOrders ? JSON.parse(storedOrders) : [];
-        orders.push(newOrder);
-        localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-
-        // 2. Process each product in the order - Skipping live stock/price updates as requested
-        // Advanced Purchase Orders are now purely for historical records and receipt generation.
-        // No stock_movements are created and no product stock/price is updated automatically.
+        if (error) throw error;
     },
 
     async getPurchaseOrders(): Promise<PurchaseOrder[]> {
-        const ORDERS_KEY = 'purchase_orders';
-        const storedOrders = localStorage.getItem(ORDERS_KEY);
-        try {
-            const orders = storedOrders ? JSON.parse(storedOrders) : [];
-            // Sort by createdAt descending
-            return orders.sort((a: PurchaseOrder, b: PurchaseOrder) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        } catch (e) {
-            console.error('Failed to parse purchase orders', e);
+        const { data, error } = await supabase
+            .from('purchase_orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Failed to fetch purchase orders', error);
             return [];
         }
+
+        return (data || []).map(o => ({
+            id: o.id,
+            date: o.date,
+            supplier: o.supplier,
+            usdQuote: Number(o.usd_quote),
+            shippingUsd: Number(o.shipping_usd),
+            packageCount: Number(o.package_count),
+            packages: o.packages,
+            factoryFeeUsd: Number(o.factory_fee_usd),
+            products: o.products,
+            totalProductsUsd: Number(o.total_products_usd),
+            totalOrderUsd: Number(o.total_order_usd),
+            status: o.status,
+            createdAt: o.created_at
+        }));
     },
 
     async getPurchaseOrderById(id: string): Promise<PurchaseOrder | null> {
-        const orders = await this.getPurchaseOrders();
-        return orders.find(o => o.id === id) || null;
+        const { data, error } = await supabase
+            .from('purchase_orders')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error || !data) return null;
+
+        return {
+            id: data.id,
+            date: data.date,
+            supplier: data.supplier,
+            usdQuote: Number(data.usd_quote),
+            shippingUsd: Number(data.shipping_usd),
+            packageCount: Number(data.package_count),
+            packages: data.packages,
+            factoryFeeUsd: Number(data.factory_fee_usd),
+            products: data.products,
+            totalProductsUsd: Number(data.total_products_usd),
+            totalOrderUsd: Number(data.total_order_usd),
+            status: data.status,
+            createdAt: data.created_at
+        };
     },
 
-    async updatePurchaseOrder(id: string, updatedOrder: Omit<PurchaseOrder, 'id' | 'createdAt' | 'status'>): Promise<void> {
-        const ORDERS_KEY = 'purchase_orders';
-        const storedOrders = localStorage.getItem(ORDERS_KEY);
-        let orders: PurchaseOrder[] = storedOrders ? JSON.parse(storedOrders) : [];
-        
-        const index = orders.findIndex(o => o.id === id);
-        if (index !== -1) {
-            orders[index] = {
-                ...orders[index],
-                ...updatedOrder,
-                id, // Keep original ID
-                status: orders[index].status // Keep original status
-            };
-            localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-        } else {
-            throw new Error(`Ordem de compra ${id} não encontrada.`);
-        }
+    async updatePurchaseOrder(id: string, order: Omit<PurchaseOrder, 'id' | 'createdAt' | 'status'>): Promise<void> {
+        const { error } = await supabase
+            .from('purchase_orders')
+            .update({
+                date: order.date,
+                supplier: order.supplier,
+                usd_quote: order.usdQuote,
+                shipping_usd: order.shippingUsd,
+                package_count: order.packageCount,
+                packages: order.packages,
+                factory_fee_usd: order.factoryFeeUsd,
+                products: order.products,
+                total_products_usd: order.totalProductsUsd,
+                total_order_usd: order.totalOrderUsd
+            })
+            .eq('id', id);
+
+        if (error) throw error;
     }
 };

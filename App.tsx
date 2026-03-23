@@ -148,7 +148,7 @@ const AppContent: React.FC = () => {
 
   // If logged in, always show sidebar (unless we want to hide it on some specific pages)
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex flex-col-reverse md:flex-row h-[100dvh] w-full overflow-hidden">
       <Sidebar />
       <main className="flex-1 h-full overflow-y-auto bg-background-light dark:bg-background-dark">
         <Routes>
