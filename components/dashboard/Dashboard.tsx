@@ -22,6 +22,20 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } 
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | '30days' | 'year' | 'custom';
 
+const getLocalDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const getTimezoneOffsetString = () => {
+    const tzo = -new Date().getTimezoneOffset();
+    const dif = tzo >= 0 ? '+' : '-';
+    const pad = (num: number) => String(Math.floor(Math.abs(num))).padStart(2, '0');
+    return dif + pad(tzo / 60) + ':' + pad(tzo % 60);
+};
+
 const Dashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -40,20 +54,6 @@ const Dashboard: React.FC = () => {
         return (localStorage.getItem('dashboard_preset') as DatePreset) || 'month';
     });
 
-    const getLocalDateString = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
-    const getTimezoneOffsetString = () => {
-        const tzo = -new Date().getTimezoneOffset();
-        const dif = tzo >= 0 ? '+' : '-';
-        const pad = (num: number) => String(Math.floor(Math.abs(num))).padStart(2, '0');
-        return dif + pad(tzo / 60) + ':' + pad(tzo % 60);
-    };
-
     const [startDate, setStartDate] = useState(() => {
         const saved = localStorage.getItem('dashboard_startDate');
         if (saved) return saved;
@@ -67,50 +67,13 @@ const Dashboard: React.FC = () => {
         return getLocalDateString(new Date());
     });
 
-    const handlePresetChange = (newPreset: DatePreset) => {
-        setPreset(newPreset);
-        const end = new Date();
-        const start = new Date();
-
-        switch (newPreset) {
-            case 'today': break;
-            case 'yesterday':
-                start.setDate(end.getDate() - 1);
-                end.setDate(end.getDate() - 1);
-                break;
-            case 'week':
-                start.setDate(end.getDate() - 6);
-                break;
-            case 'month':
-                start.setDate(1);
-                break;
-            case '30days':
-                start.setDate(end.getDate() - 30);
-                break;
-            case 'year':
-                start.setMonth(0, 1);
-                break;
-            case 'custom': return;
-        }
-
-        setStartDate(getLocalDateString(start));
-        setEndDate(getLocalDateString(end));
-    };
-
-    // Persistence Effect
-    useEffect(() => {
-        localStorage.setItem('dashboard_preset', preset);
-        localStorage.setItem('dashboard_startDate', startDate);
-        localStorage.setItem('dashboard_endDate', endDate);
-    }, [preset, startDate, endDate]);
-
-    const fetchData = async () => {
+    const fetchData = async (s = startDate, e = endDate) => {
         setLoading(true);
         setError(null);
         try {
             const tz = getTimezoneOffsetString();
-            const startISO = `${startDate}T00:00:00${tz}`;
-            const endISO = `${endDate}T23:59:59${tz}`;
+            const startISO = `${s}T00:00:00${tz}`;
+            const endISO = `${e}T23:59:59${tz}`;
 
             const [summaryData, chartsData, categories, alertsData, products, clients, ranking, activity] = await Promise.all([
                 dashboardService.getDashboardStats(startISO, endISO),
@@ -139,9 +102,87 @@ const Dashboard: React.FC = () => {
         }
     };
 
+    const handlePresetChange = (newPreset: DatePreset) => {
+        setPreset(newPreset);
+        const end = new Date();
+        const start = new Date();
+
+        if (newPreset !== 'custom') {
+            switch (newPreset) {
+                case 'today': break;
+                case 'yesterday':
+                    start.setDate(end.getDate() - 1);
+                    end.setDate(end.getDate() - 1);
+                    break;
+                case 'week':
+                    start.setDate(end.getDate() - 6);
+                    break;
+                case 'month':
+                    start.setDate(1);
+                    break;
+                case '30days':
+                    start.setDate(end.getDate() - 30);
+                    break;
+                case 'year':
+                    start.setMonth(0, 1);
+                    break;
+            }
+
+            const s = getLocalDateString(start);
+            const e = getLocalDateString(end);
+            setStartDate(s);
+            setEndDate(e);
+            fetchData(s, e);
+        }
+    };
+
+    const handleRefresh = () => {
+        if (preset !== 'custom') {
+            const end = new Date();
+            const start = new Date();
+            
+            switch (preset) {
+                case 'today': break;
+                case 'yesterday':
+                    start.setDate(end.getDate() - 1);
+                    end.setDate(end.getDate() - 1);
+                    break;
+                case 'week':
+                    start.setDate(end.getDate() - 6);
+                    break;
+                case 'month':
+                    start.setDate(1);
+                    break;
+                case '30days':
+                    start.setDate(end.getDate() - 30);
+                    break;
+                case 'year':
+                    start.setMonth(0, 1);
+                    break;
+            }
+            
+            const s = getLocalDateString(start);
+            const e = getLocalDateString(end);
+            setStartDate(s);
+            setEndDate(e);
+            fetchData(s, e);
+        } else {
+            fetchData(startDate, endDate);
+        }
+    };
+
+    // Persistence Effect
     useEffect(() => {
-        fetchData();
-    }, [startDate, endDate]);
+        localStorage.setItem('dashboard_preset', preset);
+        localStorage.setItem('dashboard_startDate', startDate);
+        localStorage.setItem('dashboard_endDate', endDate);
+    }, [preset, startDate, endDate]);
+
+    // Initial Load / Auto-update on mount
+    useEffect(() => {
+        handleRefresh();
+    }, []);
+
 
     const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
@@ -196,21 +237,29 @@ const Dashboard: React.FC = () => {
                             <input
                                 type="date"
                                 value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setStartDate(val);
+                                    fetchData(val, endDate);
+                                }}
                                 className="bg-transparent text-white text-[10px] font-bold outline-none"
                             />
                             <span className="text-slate-600 text-[10px]">/</span>
                             <input
                                 type="date"
                                 value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setEndDate(val);
+                                    fetchData(startDate, val);
+                                }}
                                 className="bg-transparent text-white text-[10px] font-bold outline-none"
                             />
                         </div>
                     )}
 
                     <button
-                        onClick={fetchData}
+                        onClick={handleRefresh}
                         disabled={loading}
                         className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all active:scale-90"
                     >
