@@ -9,6 +9,14 @@ const ShopeeIntegration: React.FC = () => {
 
     useEffect(() => {
         loadStatus();
+        
+        // Verifica se voltou do redirecionamento com sucesso
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success') === 'true') {
+            loadStatus();
+            // Limpa a URL para não ficar com o param de sucesso
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+        }
     }, []);
 
     const loadStatus = async () => {
