@@ -213,6 +213,7 @@ function mapToProduct(data: any): Product {
         imageUrl: data.image_url,
         minStock: data.min_stock,
         variations: data.variations || [],
+        shopee_fee_brl: data.shopee_fee_brl,
     };
 }
 
@@ -232,5 +233,6 @@ function mapToDbProduct(product: any): any {
         image_url: product.imageUrl,
         min_stock: product.minStock,
         variations: product.variations || [],
+        shopee_fee_brl: product.shopee_fee_brl,
     };
 }

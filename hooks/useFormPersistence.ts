@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export function useFormPersistence<T>(key: string, initialValue: T, isNew: boolean) {
     const [draftRequest, setDraftRequest] = useState<T | null>(null);
+    const hasChecked = useRef(false);
 
     // Initial check for draft
     useEffect(() => {
-        if (isNew) {
+        if (isNew && !hasChecked.current) {
             const saved = localStorage.getItem(`draft_${key}`);
             if (saved) {
                 try {
@@ -18,8 +19,9 @@ export function useFormPersistence<T>(key: string, initialValue: T, isNew: boole
                     console.error('Error parsing draft', e);
                 }
             }
+            hasChecked.current = true;
         }
-    }, [key, isNew, initialValue]);
+    }, [key, isNew]);
 
     // Save draft on changes
     const saveDraft = useCallback((data: T) => {

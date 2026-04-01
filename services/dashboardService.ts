@@ -229,7 +229,6 @@ export const dashboardService = {
         if (goals && goals.length > 0) {
             alerts.push({ id: 'goals', type: 'warning', message: `Meta estratégica "${goals[0].nome}" está em risco.`, link: '/estrategico' });
         }
-        alerts.push({ id: 'vip', type: 'info', message: "2 clientes VIP não compram há 60 dias. Verifique agora.", link: '/cadastro/clientes' });
         return alerts;
     },
 
@@ -249,6 +248,7 @@ export const dashboardService = {
          if (!data) return [];
          const clients: { [key: string]: { total: number, count: number } } = {};
          data.forEach(v => {
+             if (!v.cliente_nome || v.cliente_nome.trim() === '') return;
              if (!clients[v.cliente_nome]) clients[v.cliente_nome] = { total: 0, count: 0 };
              clients[v.cliente_nome].total += Number(v.total);
              clients[v.cliente_nome].count += 1;

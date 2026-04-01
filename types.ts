@@ -80,6 +80,7 @@ export interface Product {
   minStock?: number;
   variations?: Variation[];
   salesCount?: number;
+  shopee_fee_brl?: number;
 }
 
 export interface Vendedor {

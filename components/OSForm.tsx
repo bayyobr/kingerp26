@@ -10,6 +10,7 @@ import { Product, Vendedor } from '../types';
 import { formatCPF, formatPhone } from '../utils/formatters';
 import { vendedorService } from '../services/vendedorService';
 import { useFormPersistence } from '../hooks/useFormPersistence';
+import NumberInput from './common/NumberInput';
 
 interface OSFormProps {
   orders?: ServiceOrder[];
@@ -145,7 +146,7 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
     priceTotal: 0,
   });
 
-  const { draftRequest, saveDraft, clearDraft } = useFormPersistence<ServiceOrder>(
+  const { draftRequest, saveDraft, clearDraft, setDraftRequest } = useFormPersistence<ServiceOrder>(
     'os_form',
     {
         id: '', osNumber: '', status: OSStatus.ABERTO, entryDate: '', expectedExitDate: '',
@@ -156,17 +157,6 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
     },
     !id
   );
-
-  // Restore draft if available
-  useEffect(() => {
-    if (draftRequest && !id) {
-        setFormData(prev => ({
-            ...draftRequest,
-            id: prev.id, // Keep newly generated ID
-            osNumber: prev.osNumber // Keep newly generated OS number
-        }));
-    }
-  }, [draftRequest, id]);
 
   // Save draft on changes
   useEffect(() => {
@@ -273,6 +263,39 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
+      {/* Draft Alert */}
+      {draftRequest && !id && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 p-4 rounded-xl flex items-center justify-between animate-in slide-in-from-top-4 duration-300 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-amber-600">history</span>
+            <div>
+              <p className="text-sm font-bold text-amber-900 dark:text-amber-100">Rascunho de OS Encontrado</p>
+              <p className="text-xs text-amber-700 dark:text-amber-300">Há uma Ordem de Serviço não salva para: <span className="font-bold">{draftRequest.client.name || 'Cliente não identificado'}</span></p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => clearDraft()}
+              className="px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 dark:hover:bg-amber-800/50 rounded-lg transition-colors"
+            >
+              Descartar
+            </button>
+            <button
+              onClick={() => {
+                setFormData(prev => ({
+                  ...draftRequest,
+                  id: prev.id,
+                  osNumber: prev.osNumber
+                }));
+                setDraftRequest(null);
+              }}
+              className="px-4 py-1.5 text-xs bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 transition-all shadow-md shadow-amber-600/20"
+            >
+              Restaurar
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -503,11 +526,9 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
                   >
                     -
                   </button>
-                  <input
-                    type="number"
-                    min="1"
+                  <NumberInput
                     value={serviceQuantity}
-                    onChange={(e) => setServiceQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={(val: number) => setServiceQuantity(val)}
                     className="w-10 bg-white dark:bg-surface-dark border-y border-slate-300 dark:border-border-dark py-2 text-center text-xs font-bold focus:outline-none appearance-none h-10"
                   />
                   <button
@@ -575,11 +596,9 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
                   >
                     -
                   </button>
-                  <input
-                    type="number"
-                    min="1"
+                  <NumberInput
                     value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={(val: number) => setQuantity(val)}
                     className="w-10 bg-white dark:bg-surface-dark border-y border-slate-300 dark:border-border-dark py-2 text-center text-xs font-bold focus:outline-none appearance-none h-10"
                   />
                   <button
@@ -744,10 +763,9 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Garantia (dias)</label>
                 <div className="relative max-w-[150px]">
-                  <input
-                    type="number"
+                  <NumberInput
                     value={formData.warrantyDays}
-                    onChange={(e) => setFormData({ ...formData, warrantyDays: parseInt(e.target.value) || 0 })}
+                    onChange={(val: number) => setFormData({ ...formData, warrantyDays: val })}
                     className="w-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-xl py-3 px-4 font-bold focus:ring-2 focus:ring-primary/50 outline-none shadow-sm"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">DIAS</span>
@@ -756,12 +774,10 @@ const OSForm: React.FC<OSFormProps> = ({ orders, onSave }) => {
               <div className="flex flex-col gap-2 items-end">
                 <label className="text-xs font-bold text-primary uppercase tracking-widest text-right">Valor Total da Ordem</label>
                 <div className="relative w-full max-w-[250px]">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-black text-xl">R$</span>
-                  <input
-                    type="number"
+                  <NumberInput
                     step="0.01"
                     value={formData.priceTotal}
-                    onChange={(e) => setFormData({ ...formData, priceTotal: parseFloat(e.target.value) || 0 })}
+                    onChange={(val: number) => setFormData({ ...formData, priceTotal: val })}
                     className="w-full bg-white dark:bg-surface-dark border-primary border-2 rounded-2xl py-4 pl-14 pr-4 text-right font-black text-3xl text-slate-800 dark:text-white shadow-xl shadow-primary/10 focus:ring-4 focus:ring-primary/20 outline-none transition-all"
                   />
                 </div>

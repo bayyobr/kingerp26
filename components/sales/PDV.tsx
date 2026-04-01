@@ -51,6 +51,7 @@ const PDV: React.FC = () => {
     };
 
     const [saleDate, setSaleDate] = useState(getLocalDateString(new Date()));
+    const SHOPEE_SELLER_ID = '6bfdcaa7-962b-4ba8-a23b-0fdeacfefaba';
 
     const getTimezoneOffsetString = () => {
         const tzo = -new Date().getTimezoneOffset();
@@ -58,6 +59,26 @@ const PDV: React.FC = () => {
         const pad = (num: number) => String(Math.floor(Math.abs(num))).padStart(2, '0');
         return dif + pad(tzo / 60) + ':' + pad(tzo % 60);
     };
+
+    // Auto-calculate Shopee Discount
+    useEffect(() => {
+        if (selectedSellerId === SHOPEE_SELLER_ID) {
+            let totalShopeeFee = 0;
+            cart.forEach(item => {
+                if (item.tipo_item === 'produto') {
+                    const product = products.find(p => p.id === item.item_id);
+                    if (product && product.shopee_fee_brl) {
+                        totalShopeeFee += product.shopee_fee_brl * item.quantidade;
+                    }
+                }
+            });
+            
+            // Only update if the value changed to avoid infinite loops or unnecessary re-renders
+            if (totalShopeeFee !== discount) {
+                setDiscount(totalShopeeFee);
+            }
+        }
+    }, [selectedSellerId, cart, products, discount]);
 
     useEffect(() => {
         loadData();

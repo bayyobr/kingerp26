@@ -199,7 +199,7 @@ const Dashboard: React.FC = () => {
                 <div>
                     <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <h1 className="text-xl font-black text-white uppercase tracking-tighter">Command Center</h1>
+                        <h1 className="text-xl font-black text-white uppercase tracking-tighter">Dashboard</h1>
                     </div>
                     <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Gestão em Tempo Real • {new Date().toLocaleDateString('pt-BR')}</p>
                 </div>
@@ -317,7 +317,7 @@ const Dashboard: React.FC = () => {
 
             {/* ROW 3: CHARTS */}
             <div className="grid grid-cols-1 xl:grid-cols-10 gap-6">
-                <div className="xl:col-span-7 bg-surface-dark border border-slate-800 rounded-2xl p-6 overflow-hidden">
+                <div className="xl:col-span-10 bg-surface-dark border border-slate-800 rounded-2xl p-6 overflow-hidden">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
                             <span className="material-symbols-outlined text-primary">monitoring</span>
@@ -331,46 +331,6 @@ const Dashboard: React.FC = () => {
                     </div>
                     <div className="h-[350px]">
                         <RevenueChart data={revenueData} minimal />
-                    </div>
-                </div>
-
-                <div className="xl:col-span-3 bg-surface-dark border border-slate-800 rounded-2xl p-6">
-                    <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-pink-500">pie_chart</span>
-                        Categorias
-                    </h3>
-                    <div className="h-[250px] relative">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={categoryData as any[]}
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {categoryData.map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <RechartsTooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-xs text-slate-500 font-bold uppercase">Total</span>
-                            <span className="text-xl font-black text-white">100%</span>
-                        </div>
-                    </div>
-                    <div className="mt-6 space-y-2">
-                        {categoryData.slice(0, 3).map((cat, i) => (
-                            <div key={i} className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}></div>
-                                    <span className="text-xs text-slate-400 font-medium">{cat.name}</span>
-                                </div>
-                                <span className="text-xs font-bold text-white">R$ {cat.value.toLocaleString()}</span>
-                            </div>
-                        ))}
                     </div>
                 </div>
             </div>
