@@ -373,6 +373,7 @@ export interface StrategicAction {
   prazo?: string;
   prioridade: 'alta' | 'media' | 'low';
   status: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
+  detalhes?: string;
   meta_id?: string;
   ideia_id?: string;
   checklist: any[];
