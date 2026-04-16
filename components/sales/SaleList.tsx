@@ -277,13 +277,15 @@ const SaleList: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={() => window.location.hash = `#/vendas?edit=${sale.id}`}
-                                                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
+                                                <a
+                                                    href={`#/vendas?edit=${sale.id}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all flex items-center justify-center"
                                                     title="Visualizar / Editar"
                                                 >
                                                     <span className="material-symbols-outlined text-[20px]">visibility</span>
-                                                </button>
+                                                </a>
                                                 <button
                                                     onClick={() => setRefundModal({ isOpen: true, saleId: sale.id || null, reason: 'Desistência', returnStock: true })}
                                                     className="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-400/10 rounded-lg transition-all"
