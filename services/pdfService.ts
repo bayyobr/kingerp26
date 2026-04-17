@@ -468,7 +468,7 @@ export const generatePurchaseOrderPDF = (order: PurchaseOrder) => {
         const pkgHeaders = [['AliExpress ID', 'Taxa Aplicada (BRL)']];
         const pkgData = order.packages.map(p => [
             p.aliexpressId || 'N/A',
-            `R$ ${p.taxBrl.toFixed(2)}`
+            `R$ ${(p.taxBrl || 0).toFixed(2)}`
         ]);
 
         autoTable(doc, {

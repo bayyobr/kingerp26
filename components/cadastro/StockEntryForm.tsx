@@ -605,7 +605,7 @@ const StockEntryForm: React.FC = () => {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={pkg.taxBrl}
+                        value={pkg.taxBrl ?? ''}
                         onChange={e => handlePackageChange(pkg.id, 'taxBrl', e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#1e242b] border border-[#2b333c] pl-9 text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
                       />
