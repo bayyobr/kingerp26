@@ -26,12 +26,12 @@ const StockEntryForm: React.FC = () => {
   ]);
 
   // Shipping & Packages
-  const [shippingUsd, setShippingUsd] = useState<number | ''>('');
+  const [iofBrl, setIofBrl] = useState<number | ''>('');
   const [packageCount, setPackageCount] = useState<number | ''>('');
   const [packages, setPackages] = useState<any[]>([]);
 
   // Fees
-  const [factoryFeeUsd, setFactoryFeeUsd] = useState<number | ''>('');
+  const [factoryFeeBrl, setFactoryFeeBrl] = useState<number | ''>('');
 
   useEffect(() => {
     if (rate && !usdQuote && !isEditing) {
@@ -49,7 +49,7 @@ const StockEntryForm: React.FC = () => {
       const newPacks = Array(toAdd).fill(0).map((_, i) => ({
         id: `pkg_${Date.now()}_${Math.random()}`,
         aliexpressId: '',
-        taxUsd: ''
+        taxBrl: ''
       }));
       return [...prev, ...newPacks];
     });
@@ -74,10 +74,10 @@ const StockEntryForm: React.FC = () => {
         setDate(order.date);
         setSupplier(order.supplier);
         setUsdQuote(order.usdQuote);
-        setShippingUsd(order.shippingUsd);
+        setIofBrl(order.iofBrl);
         setPackageCount(order.packageCount);
         setPackages(order.packages);
-        setFactoryFeeUsd(order.factoryFeeUsd);
+        setFactoryFeeBrl(order.factoryFeeBrl);
 
         // Group variations back for the UI
         // We need to group items by productId
@@ -127,17 +127,23 @@ const StockEntryForm: React.FC = () => {
 
   // Calculations
   const totalProductsUsd = productsList.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPriceUsd) || 0)), 0);
-  const totalPackagesTaxUsd = packages.reduce((sum, p) => sum + (Number(p.taxUsd) || 0), 0);
-  const totalExtrasUsd = (Number(shippingUsd) || 0) + totalPackagesTaxUsd + (Number(factoryFeeUsd) || 0);
-  const totalOrderUsd = totalProductsUsd + totalExtrasUsd;
+  const totalPackagesTaxBrl = packages.reduce((sum, p) => sum + (Number(p.taxBrl) || 0), 0);
+  const totalExtrasBrl = totalPackagesTaxBrl + (Number(factoryFeeBrl) || 0) + (Number(iofBrl) || 0);
+  const totalOrderUsd = totalProductsUsd;
 
   const getProductFinalUnitBrl = (p: PurchaseOrderProduct) => {
     const productTotalUsd = (Number(p.quantity) || 0) * (Number(p.unitPriceUsd) || 0);
+    const quantity = Number(p.quantity) || 0;
     const proportion = totalProductsUsd > 0 ? (productTotalUsd / totalProductsUsd) : 0;
-    const productExtraUsd = totalExtrasUsd * proportion;
-    const productFinalTotalUsd = productTotalUsd + productExtraUsd;
-    const productFinalUnitUsd = (Number(p.quantity) || 0) > 0 ? productFinalTotalUsd / (Number(p.quantity) || 0) : 0;
-    return productFinalUnitUsd * (Number(usdQuote) || 0);
+    
+    // Base convertida p/ BRL (Preço do produto em USD)
+    const baseBrl = (Number(p.unitPriceUsd) || 0) * (Number(usdQuote) || 0);
+    
+    // Extras em BRL (Taxas de pacote + Factory Fee + IOF)
+    const productExtraBrl = totalExtrasBrl * proportion;
+    const unitExtraBrl = quantity > 0 ? productExtraBrl / quantity : 0;
+
+    return baseBrl + unitExtraBrl;
   };
 
   const handleAddProductRow = () => {
@@ -265,10 +271,10 @@ const StockEntryForm: React.FC = () => {
         date,
         supplier,
         usdQuote: Number(usdQuote),
-        shippingUsd: Number(shippingUsd) || 0,
+        iofBrl: Number(iofBrl) || 0,
         packageCount: Number(packageCount) || 0,
-        packages: packages.map(p => ({ ...p, taxUsd: Number(p.taxUsd) || 0 })),
-        factoryFeeUsd: Number(factoryFeeUsd) || 0,
+        packages: packages.map(p => ({ ...p, taxBrl: Number(p.taxBrl) || 0 })),
+        factoryFeeBrl: Number(factoryFeeBrl) || 0,
         products: finalProducts,
         totalProductsUsd,
         totalOrderUsd
@@ -514,19 +520,19 @@ const StockEntryForm: React.FC = () => {
           <div className="bg-[#13191f] border border-[#1e242b] rounded-xl p-6 flex flex-col gap-4">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
               <span className="material-symbols-outlined text-blue-500">local_shipping</span>
-              Frete e Embalagem
+              Tributos e Pacotes
             </h2>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-slate-300">Valor do Frete (USD)</label>
+              <label className="text-sm font-medium text-slate-300">IOF Gasto (BRL)</label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-slate-400">$</span>
+                <span className="absolute left-3 top-2.5 text-slate-400">R$</span>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  value={shippingUsd}
-                  onChange={e => setShippingUsd(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-4 py-2.5 rounded-lg focus:outline-none focus:border-blue-500"
+                  value={iofBrl}
+                  onChange={e => setIofBrl(e.target.value ? Number(e.target.value) : '')}
+                  className="w-full bg-[#1e242b] border border-[#2b333c] pl-9 text-white px-4 py-2.5 rounded-lg focus:outline-none focus:border-blue-500"
                 />
               </div>
             </div>
@@ -549,16 +555,16 @@ const StockEntryForm: React.FC = () => {
               Encargos Extras
             </h2>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-slate-300">Fee Charge da Fábrica (USD)</label>
+              <label className="text-sm font-medium text-slate-300">Fee Charge da Fábrica (BRL)</label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-slate-400">$</span>
+                <span className="absolute left-3 top-2.5 text-slate-400">R$</span>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  value={factoryFeeUsd}
-                  onChange={e => setFactoryFeeUsd(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-4 py-2.5 rounded-lg focus:outline-none focus:border-blue-500"
+                  value={factoryFeeBrl}
+                  onChange={e => setFactoryFeeBrl(e.target.value ? Number(e.target.value) : '')}
+                  className="w-full bg-[#1e242b] border border-[#2b333c] pl-9 text-white px-4 py-2.5 rounded-lg focus:outline-none focus:border-blue-500"
                 />
               </div>
             </div>
@@ -592,16 +598,16 @@ const StockEntryForm: React.FC = () => {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs text-slate-400">Preço com Taxas (USD)</label>
+                    <label className="text-xs text-slate-400">Taxa do Pacote (BRL)</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1.5 text-slate-400 text-sm">$</span>
+                      <span className="absolute left-3 top-1.5 text-slate-400 text-sm">R$</span>
                       <input
                         type="number"
                         step="0.01"
                         min="0"
-                        value={pkg.taxUsd}
-                        onChange={e => handlePackageChange(pkg.id, 'taxUsd', e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
+                        value={pkg.taxBrl}
+                        onChange={e => handlePackageChange(pkg.id, 'taxBrl', e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full bg-[#1e242b] border border-[#2b333c] pl-9 text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
                       />
                     </div>
                   </div>
@@ -615,12 +621,12 @@ const StockEntryForm: React.FC = () => {
         <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col gap-1 text-slate-300 w-full md:w-auto text-sm">
             <p className="flex justify-between md:gap-8">Total Produtos: <span className="font-semibold text-white">US$ {totalProductsUsd.toFixed(2)}</span></p>
-            <p className="flex justify-between md:gap-8">Total Frete: <span className="font-semibold text-white">US$ {(Number(shippingUsd) || 0).toFixed(2)}</span></p>
-            <p className="flex justify-between md:gap-8">Total Taxas (Pacotes): <span className="font-semibold text-white">US$ {totalPackagesTaxUsd.toFixed(2)}</span></p>
-            <p className="flex justify-between md:gap-8">Fee Charge: <span className="font-semibold text-white">US$ {(Number(factoryFeeUsd) || 0).toFixed(2)}</span></p>
+            <p className="flex justify-between md:gap-8">Total IOF (BRL): <span className="font-semibold text-white">R$ {(Number(iofBrl) || 0).toFixed(2)}</span></p>
+            <p className="flex justify-between md:gap-8">Total Taxas (Pacotes - BRL): <span className="font-semibold text-white">R$ {totalPackagesTaxBrl.toFixed(2)}</span></p>
+            <p className="flex justify-between md:gap-8">Fee Charge (BRL): <span className="font-semibold text-white">R$ {(Number(factoryFeeBrl) || 0).toFixed(2)}</span></p>
             <div className="h-px w-full bg-blue-500/20 my-2"></div>
             <p className="flex justify-between font-bold text-lg md:gap-8 text-blue-400">
-              VALOR TOTAL DO PEDIDO: <span>US$ {totalOrderUsd.toFixed(2)}</span>
+              VALOR TOTAL (USD): <span>US$ {totalOrderUsd.toFixed(2)}</span>
             </p>
           </div>
 

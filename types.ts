@@ -215,7 +215,7 @@ export interface StockMovement {
 export interface PurchaseOrderPackage {
   id: string;
   aliexpressId: string;
-  taxUsd: number;
+  taxBrl: number;
 }
 
 export interface PurchaseOrderProduct {
@@ -235,10 +235,10 @@ export interface PurchaseOrder {
   date: string;
   supplier: string;
   usdQuote: number;
-  shippingUsd: number;
+  iofBrl: number;
   packageCount: number;
   packages: PurchaseOrderPackage[];
-  factoryFeeUsd: number;
+  factoryFeeBrl: number;
   products: PurchaseOrderProduct[];
   totalProductsUsd: number;
   totalOrderUsd: number;

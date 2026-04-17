@@ -465,10 +465,10 @@ export const generatePurchaseOrderPDF = (order: PurchaseOrder) => {
         doc.text('Tracking e Taxas (Pacotes)', 15, y);
         y += 5;
 
-        const pkgHeaders = [['AliExpress ID', 'Taxa Aplicada (USD)']];
+        const pkgHeaders = [['AliExpress ID', 'Taxa Aplicada (BRL)']];
         const pkgData = order.packages.map(p => [
             p.aliexpressId || 'N/A',
-            `$ ${p.taxUsd.toFixed(2)}`
+            `R$ ${p.taxBrl.toFixed(2)}`
         ]);
 
         autoTable(doc, {
@@ -508,15 +508,16 @@ export const generatePurchaseOrderPDF = (order: PurchaseOrder) => {
         y += 6;
     };
 
-    const packageTaxes = order.packages?.reduce((acc, p) => acc + (p.taxUsd || 0), 0) || 0;
+    const packageTaxesBrl = order.packages?.reduce((acc, p) => acc + (p.taxBrl || 0), 0) || 0;
+    const extraBrl = (order.iofBrl || 0) + (order.factoryFeeBrl || 0) + packageTaxesBrl;
 
     drawLine('Soma dos Produtos (USD):', `$ ${(order.totalProductsUsd || 0).toFixed(2)}`);
-    drawLine('Frete / Inbound (USD):', `$ ${(order.shippingUsd || 0).toFixed(2)}`);
-    if (packageTaxes > 0) {
-        drawLine('Taxas AliExpress / Correios (USD):', `$ ${packageTaxes.toFixed(2)}`);
+    drawLine('IOF Gasto (BRL):', `R$ ${(order.iofBrl || 0).toFixed(2)}`);
+    if (packageTaxesBrl > 0) {
+        drawLine('Taxas AliExpress / Correios (BRL):', `R$ ${packageTaxesBrl.toFixed(2)}`);
     }
-    if (order.factoryFeeUsd > 0) {
-        drawLine('Fee Charge de Fábrica (USD):', `$ ${(order.factoryFeeUsd || 0).toFixed(2)}`);
+    if (order.factoryFeeBrl > 0) {
+        drawLine('Fee Charge de Fábrica (BRL):', `R$ ${(order.factoryFeeBrl || 0).toFixed(2)}`);
     }
     
     y += 2;
@@ -524,10 +525,11 @@ export const generatePurchaseOrderPDF = (order: PurchaseOrder) => {
     y += 6;
 
     doc.setFontSize(11);
-    drawLine('VALOR TOTAL DO PEDIDO (USD):', `$ ${(order.totalOrderUsd || 0).toFixed(2)}`, true);
+    drawLine('VALOR TOTAL (USD):', `$ ${(order.totalOrderUsd || 0).toFixed(2)}`, true);
     
     doc.setTextColor(0, 100, 0);
-    drawLine('ESTIMATIVA TOTAL (BRL):', `R$ ${((order.totalOrderUsd || 0) * order.usdQuote).toFixed(2)}`, true);
+    const totalEstimativaBrl = (order.totalOrderUsd || 0) * order.usdQuote + extraBrl;
+    drawLine('ESTIMATIVA TOTAL (BRL):', `R$ ${totalEstimativaBrl.toFixed(2)}`, true);
     doc.setTextColor(0, 0, 0);
 
     y += 15;
