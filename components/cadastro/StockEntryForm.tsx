@@ -481,7 +481,7 @@ const StockEntryForm: React.FC = () => {
               <div className="relative group">
                 <input
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0.01"
                   value={usdQuote}
                   onChange={e => setUsdQuote(e.target.value ? Number(e.target.value) : '')}
@@ -564,7 +564,7 @@ const StockEntryForm: React.FC = () => {
                         <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
                         <input
                           type="number"
-                          step="0.01"
+                          step="any"
                           min="0"
                           value={p.unitPriceUsd}
                           onChange={e => handleProductChange(p.id, 'unitPriceUsd', e.target.value === '' ? '' : Number(e.target.value))}
