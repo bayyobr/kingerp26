@@ -76,20 +76,48 @@ const PackageCard: React.FC<{
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Taxa do Pacote (BRL)</label>
-        <div className="relative">
-          <span className="absolute left-2 top-1.5 text-slate-500 text-[10px]">R$</span>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={pkg.taxBrl ?? ''}
-            onChange={e => onChange(pkg.id, 'taxBrl', e.target.value === '' ? '' : Number(e.target.value))}
-            className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-2 py-1.5 rounded-md focus:outline-none focus:border-blue-500 text-xs"
-          />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Valor do Pacote (BRL)</label>
+          <div className="relative">
+            <span className="absolute left-2 top-1.5 text-slate-500 text-[10px]">R$</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={pkg.valueBrl ?? ''}
+              onChange={e => onChange(pkg.id, 'valueBrl', e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-2 py-1.5 rounded-md focus:outline-none focus:border-blue-500 text-xs"
+              placeholder="0.00"
+            />
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Taxa do Pacote (BRL)</label>
+          <div className="relative">
+            <span className="absolute left-2 top-1.5 text-slate-500 text-[10px]">R$</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={pkg.taxBrl ?? ''}
+              onChange={e => onChange(pkg.id, 'taxBrl', e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-2 py-1.5 rounded-md focus:outline-none focus:border-blue-500 text-xs"
+              placeholder="0.00"
+            />
+          </div>
         </div>
       </div>
+
+      {/* Summary of this package */}
+      {(Number(pkg.valueBrl) > 0 || Number(pkg.taxBrl) > 0) && (
+        <div className="mt-1 p-2 rounded bg-blue-500/5 border border-blue-500/10 flex justify-between items-center">
+          <span className="text-[10px] text-slate-500 font-medium">TOTAL (VALOR + TAXA):</span>
+          <span className="text-xs font-bold text-blue-400">
+            R$ {(Number(pkg.valueBrl || 0) + Number(pkg.taxBrl || 0)).toFixed(2)}
+          </span>
+        </div>
+      )}
     </div>
   );
 };
@@ -140,6 +168,7 @@ const StockEntryForm: React.FC = () => {
         aliexpressId: '',
         trackingNumber: '',
         taxBrl: '',
+        valueBrl: '',
         arrivedProducts: '',
         status: 'Pendente'
       }));

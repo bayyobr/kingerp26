@@ -217,6 +217,7 @@ export interface PurchaseOrderPackage {
   aliexpressId: string;
   trackingNumber?: string;
   taxBrl: number;
+  valueBrl?: number;
   arrivedProducts?: string;
   status?: 'Pendente' | 'Recebido';
 }
