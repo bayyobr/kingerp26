@@ -5,6 +5,95 @@ import { stockService } from '../../services/stockService';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
 
+// Sub-component for individual package card
+const PackageCard: React.FC<{
+  pkg: any;
+  index: number;
+  onChange: (id: string, field: string, value: any) => void;
+}> = ({ pkg, index, onChange }) => {
+  const isReceived = pkg.status === 'Recebido';
+
+  return (
+    <div className={`p-4 rounded-lg flex flex-col gap-3 transition-all duration-300 border ${
+      isReceived 
+        ? 'bg-emerald-500/5 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]' 
+        : 'bg-[#0e1217] border-[#1e242b]'
+    }`}>
+      <div className="flex items-center justify-between">
+        <div className="font-bold text-slate-300 flex items-center gap-2">
+          <div className={`size-6 rounded flex items-center justify-center text-xs ${
+            isReceived ? 'bg-emerald-500 text-white' : 'bg-blue-500/20 text-blue-400'
+          }`}>
+            {index + 1}
+          </div>
+          Pacote {isReceived && <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded ml-1">CHEGOU</span>}
+        </div>
+        <select
+          value={pkg.status || 'Pendente'}
+          onChange={e => onChange(pkg.id, 'status', e.target.value)}
+          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border focus:outline-none transition-colors ${
+            isReceived 
+              ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' 
+              : 'bg-red-500/10 border-red-500/20 text-red-400'
+          }`}
+        >
+          <option value="Pendente">Faltando</option>
+          <option value="Recebido">Chegou</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">ID AliExpress</label>
+          <input
+            type="text"
+            value={pkg.aliexpressId || ''}
+            onChange={e => onChange(pkg.id, 'aliexpressId', e.target.value)}
+            className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-2 py-1.5 rounded-md focus:outline-none focus:border-blue-500 text-xs"
+            placeholder="Ex: 812344..."
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Cód. Rastreio</label>
+          <input
+            type="text"
+            value={pkg.trackingNumber || ''}
+            onChange={e => onChange(pkg.id, 'trackingNumber', e.target.value)}
+            className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-2 py-1.5 rounded-md focus:outline-none focus:border-blue-500 text-xs"
+            placeholder="Ex: LB123456789HK"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">O que chegou nesse pacote?</label>
+        <textarea
+          value={pkg.arrivedProducts || ''}
+          onChange={e => onChange(pkg.id, 'arrivedProducts', e.target.value)}
+          rows={2}
+          className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-2 py-1.5 rounded-md focus:outline-none focus:border-blue-500 text-xs resize-none"
+          placeholder="Liste os produtos aqui..."
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Taxa do Pacote (BRL)</label>
+        <div className="relative">
+          <span className="absolute left-2 top-1.5 text-slate-500 text-[10px]">R$</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={pkg.taxBrl ?? ''}
+            onChange={e => onChange(pkg.id, 'taxBrl', e.target.value === '' ? '' : Number(e.target.value))}
+            className="w-full bg-[#1e242b] border border-[#2b333c] pl-7 text-white px-2 py-1.5 rounded-md focus:outline-none focus:border-blue-500 text-xs"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const StockEntryForm: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -49,7 +138,10 @@ const StockEntryForm: React.FC = () => {
       const newPacks = Array(toAdd).fill(0).map((_, i) => ({
         id: `pkg_${Date.now()}_${Math.random()}`,
         aliexpressId: '',
-        taxBrl: ''
+        trackingNumber: '',
+        taxBrl: '',
+        arrivedProducts: '',
+        status: 'Pendente'
       }));
       return [...prev, ...newPacks];
     });
@@ -574,45 +666,51 @@ const StockEntryForm: React.FC = () => {
         {/* PACKAGE SLOTS (Dynamic) */}
         {packages.length > 0 && (
           <div className="bg-[#13191f] border border-[#1e242b] rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
               <span className="material-symbols-outlined text-blue-500">box</span>
-              Tracking e Taxas dos Pacotes
+              Tracking e Gestão de Pacotes
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {packages.map((pkg, index) => (
-                <div key={pkg.id} className="bg-[#0e1217] border border-[#1e242b] p-4 rounded-lg flex flex-col gap-3">
-                  <div className="font-semibold text-slate-300 flex items-center gap-2">
-                    <div className="bg-blue-500/20 text-blue-400 size-6 rounded flex items-center justify-center text-xs">
-                      {index + 1}
-                    </div>
-                    Pacote
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-slate-400">ID AliExpress</label>
-                    <input
-                      type="text"
-                      value={pkg.aliexpressId}
-                      onChange={e => handlePackageChange(pkg.id, 'aliexpressId', e.target.value)}
-                      className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
-                      placeholder="Ex: 812344..."
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-slate-400">Taxa do Pacote (BRL)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1.5 text-slate-400 text-sm">R$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={pkg.taxBrl ?? ''}
-                        onChange={e => handlePackageChange(pkg.id, 'taxBrl', e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full bg-[#1e242b] border border-[#2b333c] pl-9 text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
+            
+            <div className="flex flex-col gap-8">
+              {/* SECTION: FALTANDO (PENDENTE) */}
+              {packages.some(p => (p.status || 'Pendente') === 'Pendente') && (
+                <div className="flex flex-col gap-4">
+                  <h3 className="text-sm font-bold text-red-400 uppercase tracking-wider flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px]">pending_actions</span>
+                    A Caminho / Faltando ({packages.filter(p => (p.status || 'Pendente') === 'Pendente').length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {packages.filter(p => (p.status || 'Pendente') === 'Pendente').map((pkg) => (
+                      <PackageCard 
+                        key={pkg.id} 
+                        pkg={pkg} 
+                        index={packages.findIndex(p => p.id === pkg.id)} 
+                        onChange={handlePackageChange} 
                       />
-                    </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* SECTION: CHEGOU (RECEBIDO) */}
+              {packages.some(p => p.status === 'Recebido') && (
+                <div className="flex flex-col gap-4">
+                  <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                    Recebidos / Chegou ({packages.filter(p => p.status === 'Recebido').length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {packages.filter(p => p.status === 'Recebido').map((pkg) => (
+                      <PackageCard 
+                        key={pkg.id} 
+                        pkg={pkg} 
+                        index={packages.findIndex(p => p.id === pkg.id)} 
+                        onChange={handlePackageChange} 
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

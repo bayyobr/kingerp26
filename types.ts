@@ -215,7 +215,10 @@ export interface StockMovement {
 export interface PurchaseOrderPackage {
   id: string;
   aliexpressId: string;
+  trackingNumber?: string;
   taxBrl: number;
+  arrivedProducts?: string;
+  status?: 'Pendente' | 'Recebido';
 }
 
 export interface PurchaseOrderProduct {

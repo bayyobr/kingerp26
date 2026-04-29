@@ -59,13 +59,14 @@ const PurchaseOrderList: React.FC = () => {
                 <th className="p-4 font-semibold text-right">Qtd Produtos</th>
                 <th className="p-4 font-semibold text-right">Total (USD)</th>
                 <th className="p-4 font-semibold text-right">Cotação (R$)</th>
+                <th className="p-4 font-semibold">Status / Rastreio</th>
                 <th className="p-4 font-semibold text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="text-sm">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center p-8 text-slate-500">
+                  <td colSpan={8} className="text-center p-8 text-slate-500">
                     Nenhuma entrada avançada registrada ainda.
                   </td>
                 </tr>
@@ -91,6 +92,23 @@ const PurchaseOrderList: React.FC = () => {
                     </td>
                     <td className="p-4 text-right text-emerald-400">
                       R$ {order.usdQuote.toFixed(2)}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            order.packages.every(p => p.status === 'Recebido') ? 'bg-emerald-500' : 'bg-red-500'
+                          }`} />
+                          <span className="text-xs font-bold text-slate-300">
+                            {order.packages.filter(p => p.status === 'Recebido').length}/{order.packages.length} Chegou
+                          </span>
+                        </div>
+                        {order.packages.some(p => p.trackingNumber) && (
+                          <div className="text-[10px] text-slate-500 font-mono truncate max-w-[120px]" title={order.packages.map(p => p.trackingNumber).filter(Boolean).join(', ')}>
+                            {order.packages.map(p => p.trackingNumber).filter(Boolean).join(', ')}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-2">
