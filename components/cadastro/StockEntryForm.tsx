@@ -250,13 +250,14 @@ const StockEntryForm: React.FC = () => {
   const totalPackagesValueBrl = packages.reduce((sum, p) => sum + (Number(p.valueBrl) || 0), 0);
   const totalPackagesTaxBrl = packages.reduce((sum, p) => sum + (Number(p.taxBrl) || 0), 0);
   
-  const totalExtrasBrl = totalPackagesTaxBrl + (Number(factoryFeeBrl) || 0) + (Number(iofBrl) || 0);
+  // Extras include everything except the base product price in USD
+  const totalExtrasBrl = totalPackagesValueBrl + totalPackagesTaxBrl + (Number(factoryFeeBrl) || 0) + (Number(iofBrl) || 0);
   
-  // Total BRL = (Products in USD * Quote) + Package Values + Taxes + Extras
-  const grandTotalBrl = (totalProductsUsd * (Number(usdQuote) || 0)) + totalPackagesValueBrl + totalExtrasBrl;
+  // Total BRL = (Products in USD * Quote) + Extras (Packages + Taxes + IOF + Fee)
+  const grandTotalBrl = (totalProductsUsd * (Number(usdQuote) || 0)) + totalExtrasBrl;
   
-  // Total USD = Total Products USD + (Everything else in BRL / Quote)
-  const grandTotalUsd = totalProductsUsd + (Number(usdQuote) > 0 ? (totalPackagesValueBrl + totalExtrasBrl) / Number(usdQuote) : 0);
+  // Total USD = Total Products USD + (Extras in BRL / Quote)
+  const grandTotalUsd = totalProductsUsd + (Number(usdQuote) > 0 ? totalExtrasBrl / Number(usdQuote) : 0);
 
   const getProductFinalUnitBrl = (p: PurchaseOrderProduct) => {
     const productTotalUsd = (Number(p.quantity) || 0) * (Number(p.unitPriceUsd) || 0);
