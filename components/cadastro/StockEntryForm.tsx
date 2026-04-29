@@ -157,14 +157,13 @@ const StockEntryForm: React.FC = () => {
   }, [rate, usdQuote, isEditing]);
 
   useEffect(() => {
-    if (isEditing) return;
     const count = Number(packageCount) || 0;
     setPackages(prev => {
       if (prev.length === count) return prev;
       if (prev.length > count) return prev.slice(0, count);
       const toAdd = count - prev.length;
       const newPacks = Array(toAdd).fill(0).map((_, i) => ({
-        id: `pkg_${Date.now()}_${Math.random()}`,
+        id: `pkg_${Date.now()}_${Math.random()}_${i}`,
         aliexpressId: '',
         trackingNumber: '',
         taxBrl: '',
@@ -174,7 +173,7 @@ const StockEntryForm: React.FC = () => {
       }));
       return [...prev, ...newPacks];
     });
-  }, [packageCount, isEditing]);
+  }, [packageCount]);
 
   useEffect(() => {
     const init = async () => {
