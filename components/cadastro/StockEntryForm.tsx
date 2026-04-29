@@ -247,9 +247,16 @@ const StockEntryForm: React.FC = () => {
 
   // Calculations
   const totalProductsUsd = productsList.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPriceUsd) || 0)), 0);
+  const totalPackagesValueBrl = packages.reduce((sum, p) => sum + (Number(p.valueBrl) || 0), 0);
   const totalPackagesTaxBrl = packages.reduce((sum, p) => sum + (Number(p.taxBrl) || 0), 0);
+  
   const totalExtrasBrl = totalPackagesTaxBrl + (Number(factoryFeeBrl) || 0) + (Number(iofBrl) || 0);
-  const totalOrderUsd = totalProductsUsd;
+  
+  // Total BRL = (Products in USD * Quote) + Package Values + Taxes + Extras
+  const grandTotalBrl = (totalProductsUsd * (Number(usdQuote) || 0)) + totalPackagesValueBrl + totalExtrasBrl;
+  
+  // Total USD = Total Products USD + (Everything else in BRL / Quote)
+  const grandTotalUsd = totalProductsUsd + (Number(usdQuote) > 0 ? (totalPackagesValueBrl + totalExtrasBrl) / Number(usdQuote) : 0);
 
   const getProductFinalUnitBrl = (p: PurchaseOrderProduct) => {
     const productTotalUsd = (Number(p.quantity) || 0) * (Number(p.unitPriceUsd) || 0);
@@ -393,11 +400,11 @@ const StockEntryForm: React.FC = () => {
         usdQuote: Number(usdQuote),
         iofBrl: Number(iofBrl) || 0,
         packageCount: Number(packageCount) || 0,
-        packages: packages.map(p => ({ ...p, taxBrl: Number(p.taxBrl) || 0 })),
+        packages: packages.map(p => ({ ...p, taxBrl: Number(p.taxBrl) || 0, valueBrl: Number(p.valueBrl) || 0 })),
         factoryFeeBrl: Number(factoryFeeBrl) || 0,
         products: finalProducts,
         totalProductsUsd,
-        totalOrderUsd
+        totalOrderUsd: grandTotalUsd
       };
 
       if (isEditing) {
@@ -745,15 +752,23 @@ const StockEntryForm: React.FC = () => {
 
         {/* TOTALS AND SUBMIT */}
         <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col gap-1 text-slate-300 w-full md:w-auto text-sm">
+          <div className="flex flex-col gap-1 text-slate-300 w-full md:w-auto text-sm min-w-[300px]">
             <p className="flex justify-between md:gap-8">Total Produtos: <span className="font-semibold text-white">US$ {totalProductsUsd.toFixed(2)}</span></p>
+            <p className="flex justify-between md:gap-8">Total Valor Pacotes (BRL): <span className="font-semibold text-white">R$ {totalPackagesValueBrl.toFixed(2)}</span></p>
+            <p className="flex justify-between md:gap-8">Total Taxas/Impostos (BRL): <span className="font-semibold text-white">R$ {totalPackagesTaxBrl.toFixed(2)}</span></p>
             <p className="flex justify-between md:gap-8">Total IOF (BRL): <span className="font-semibold text-white">R$ {(Number(iofBrl) || 0).toFixed(2)}</span></p>
-            <p className="flex justify-between md:gap-8">Total Taxas (Pacotes - BRL): <span className="font-semibold text-white">R$ {totalPackagesTaxBrl.toFixed(2)}</span></p>
             <p className="flex justify-between md:gap-8">Fee Charge (BRL): <span className="font-semibold text-white">R$ {(Number(factoryFeeBrl) || 0).toFixed(2)}</span></p>
+            
             <div className="h-px w-full bg-blue-500/20 my-2"></div>
-            <p className="flex justify-between font-bold text-lg md:gap-8 text-blue-400">
-              VALOR TOTAL (USD): <span>US$ {totalOrderUsd.toFixed(2)}</span>
-            </p>
+            
+            <div className="flex flex-col gap-1">
+              <p className="flex justify-between font-bold text-lg md:gap-8 text-blue-400">
+                VALOR TOTAL (BRL): <span>R$ {grandTotalBrl.toFixed(2)}</span>
+              </p>
+              <p className="flex justify-between font-medium text-sm md:gap-8 text-slate-400">
+                VALOR TOTAL (USD): <span>US$ {grandTotalUsd.toFixed(2)}</span>
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto">
