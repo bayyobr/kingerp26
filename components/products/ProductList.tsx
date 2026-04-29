@@ -119,9 +119,27 @@ const ProductList: React.FC = () => {
         doc.text(`Data: ${new Date().toLocaleString('pt-BR')}`, 14, 26);
 
         // Summary Data
-        const totalItems = products.reduce((acc, p) => acc + p.stockQuantity, 0);
-        const totalCost = products.reduce((acc, p) => acc + (p.costPrice * p.stockQuantity), 0);
-        const totalSale = products.reduce((acc, p) => acc + (p.salePrice * p.stockQuantity), 0);
+        // Use the same dynamic calculation as the UI
+        const reportData = products.map(p => {
+            const stock = getActualStock(p);
+            const costTotal = Number(p.costPrice || 0) * stock;
+            let saleTotal = 0;
+            if (p.type === 'variation' && p.variations) {
+                saleTotal = p.variations.reduce((vAcc, v) => vAcc + ((Number(v.price) || Number(p.salePrice) || 0) * (Number(v.stock) || 0)), 0);
+            } else {
+                saleTotal = Number(p.salePrice || 0) * stock;
+            }
+            return {
+                ...p,
+                actualStock: stock,
+                costTotal,
+                saleTotal
+            };
+        });
+
+        const totalItems = reportData.reduce((acc, p) => acc + p.actualStock, 0);
+        const totalCost = reportData.reduce((acc, p) => acc + p.costTotal, 0);
+        const totalSale = reportData.reduce((acc, p) => acc + p.saleTotal, 0);
         const potentialProfit = totalSale - totalCost;
 
         doc.setFillColor(240, 240, 240);
@@ -201,8 +219,16 @@ const ProductList: React.FC = () => {
         doc.save('relatorio_estoque_king_carcacas.pdf');
     };
 
-    // Derived state for filters
+    const getActualStock = (p: Product) => {
+        if (p.type === 'variation' && p.variations && p.variations.length > 0) {
+            return p.variations.reduce((acc, v) => acc + (Number(v.stock) || 0), 0);
+        }
+        return Number(p.stockQuantity || 0);
+    };
+
+    // Derived state for filters and totals
     const uniqueCategories = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
+    
     const filtered = products.filter(p => {
         const matchSearch = (p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase())));
@@ -219,6 +245,25 @@ const ProductList: React.FC = () => {
         if (sortBy === 'least_sold') return (a.salesCount || 0) - (b.salesCount || 0);
         return a.name.localeCompare(b.name);
     });
+
+    // Calculate Totals based on filtered results
+    const totals = filtered.reduce((acc, p) => {
+        const stock = getActualStock(p);
+        const cost = Number(p.costPrice || 0) * stock;
+        
+        let saleValue = 0;
+        if (p.type === 'variation' && p.variations) {
+            saleValue = p.variations.reduce((vAcc, v) => vAcc + ((Number(v.price) || Number(p.salePrice) || 0) * (Number(v.stock) || 0)), 0);
+        } else {
+            saleValue = Number(p.salePrice || 0) * stock;
+        }
+
+        return {
+            items: acc.items + stock,
+            investment: acc.investment + cost,
+            potentialSale: acc.potentialSale + saleValue
+        };
+    }, { items: 0, investment: 0, potentialSale: 0 });
 
     if (loading) return (
         <div className="flex w-full h-full items-center justify-center p-8">
@@ -249,6 +294,41 @@ const ProductList: React.FC = () => {
                         <span className="material-symbols-outlined">add</span>
                         Novo Produto
                     </Link>
+                </div>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-surface-dark p-5 rounded-2xl border border-slate-200 dark:border-border-dark shadow-sm flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Itens</span>
+                    <div className="flex items-end justify-between">
+                        <span className="text-2xl font-black text-slate-900 dark:text-white">{totals.items} <span className="text-xs font-medium text-slate-400">un</span></span>
+                        <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-xl">inventory_2</span>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-surface-dark p-5 rounded-2xl border border-slate-200 dark:border-border-dark shadow-sm flex flex-col gap-1 border-l-4 border-l-amber-500">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Investimento Total</span>
+                    <div className="flex items-end justify-between">
+                        <span className="text-2xl font-black text-slate-900 dark:text-white">R$ {totals.investment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="material-symbols-outlined text-amber-500 bg-amber-500/10 p-2 rounded-xl">payments</span>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-surface-dark p-5 rounded-2xl border border-slate-200 dark:border-border-dark shadow-sm flex flex-col gap-1 border-l-4 border-l-emerald-500">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor de Venda</span>
+                    <div className="flex items-end justify-between">
+                        <span className="text-2xl font-black text-slate-900 dark:text-white">R$ {totals.potentialSale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="material-symbols-outlined text-emerald-500 bg-emerald-500/10 p-2 rounded-xl">point_of_sale</span>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-surface-dark p-5 rounded-2xl border border-slate-200 dark:border-border-dark shadow-sm flex flex-col gap-1 border-l-4 border-l-blue-500">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lucro Estimado</span>
+                    <div className="flex items-end justify-between">
+                        <span className="text-2xl font-black text-slate-900 dark:text-white">R$ {(totals.potentialSale - totals.investment).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="material-symbols-outlined text-blue-500 bg-blue-500/10 p-2 rounded-xl">trending_up</span>
+                    </div>
                 </div>
             </div>
 
@@ -371,8 +451,8 @@ const ProductList: React.FC = () => {
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col gap-1">
                                             <div className="flex items-center gap-2">
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold w-max ${product.stockQuantity <= (product.minStock || 0) ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                                                    {product.stockQuantity} un
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold w-max ${getActualStock(product) <= (product.minStock || 0) ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                                                    {getActualStock(product)} un
                                                 </span>
                                                 {product.type !== 'variation' && (
                                                     <button onClick={() => openAdjust(product)} className="text-slate-400 hover:text-primary transition-colors" title="Ajustar Estoque">

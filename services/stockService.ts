@@ -45,18 +45,39 @@ export const stockService = {
 
                 if (!fetchErr && prod) {
                     if (movement.variationId) {
-                        // Update variation stock
-                        const variations = prod.variations || [];
-                        const index = variations.findIndex((v: any) => v.id === movement.variationId);
-                        if (index !== -1) {
+                        // 1. Update the specific variation in the product_variations table
+                        const { data: variationData, error: varFetchErr } = await supabase
+                            .from('product_variations')
+                            .select('stock')
+                            .eq('id', movement.variationId)
+                            .single();
+
+                        if (!varFetchErr && variationData) {
+                            let newVarStock = Number(variationData.stock || 0);
                             if (movement.type === 'entrada') {
-                                variations[index].stock += movement.quantity;
+                                newVarStock += movement.quantity;
                             } else {
-                                variations[index].stock = Math.max(0, variations[index].stock - movement.quantity);
+                                newVarStock = Math.max(0, newVarStock - movement.quantity);
                             }
-                            // Total stock is sum of variations
-                            const totalStock = variations.reduce((acc: number, v: any) => acc + (v.stock || 0), 0);
-                            await supabase.from('products').update({ variations, stock_quantity: totalStock }).eq('id', movement.productId);
+
+                            await supabase
+                                .from('product_variations')
+                                .update({ stock: newVarStock })
+                                .eq('id', movement.variationId);
+                            
+                            // 2. Recalculate total stock for the product
+                            const { data: allVars } = await supabase
+                                .from('product_variations')
+                                .select('stock')
+                                .eq('product_id', movement.productId);
+                            
+                            if (allVars) {
+                                const totalStock = allVars.reduce((acc, v) => acc + (Number(v.stock) || 0), 0);
+                                await supabase
+                                    .from('products')
+                                    .update({ stock_quantity: totalStock })
+                                    .eq('id', movement.productId);
+                            }
                         }
                     } else {
                         // Update simple product stock
