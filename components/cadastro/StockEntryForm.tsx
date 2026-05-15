@@ -9,8 +9,9 @@ import { useExchangeRate } from '../../hooks/useExchangeRate';
 const PackageCard: React.FC<{
   pkg: any;
   index: number;
+  hasUpsPackages: boolean;
   onChange: (id: string, field: string, value: any) => void;
-}> = ({ pkg, index, onChange }) => {
+}> = ({ pkg, index, hasUpsPackages, onChange }) => {
   const isReceived = pkg.status === 'Recebido';
 
   return (
@@ -41,6 +42,21 @@ const PackageCard: React.FC<{
           <option value="Recebido">Chegou</option>
         </select>
       </div>
+
+      {hasUpsPackages && (
+        <div className="flex items-center gap-2 bg-[#1e242b]/50 p-2 rounded border border-[#2b333c]/50">
+          <input
+            type="checkbox"
+            id={`ups_${pkg.id}`}
+            checked={pkg.isUps || false}
+            onChange={e => onChange(pkg.id, 'isUps', e.target.checked)}
+            className="size-3.5 rounded border-[#2b333c] bg-[#1e242b] checked:bg-blue-500 cursor-pointer"
+          />
+          <label htmlFor={`ups_${pkg.id}`} className="text-xs font-bold text-slate-300 uppercase tracking-tight cursor-pointer">
+            É pacote UPS?
+          </label>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
@@ -107,14 +123,31 @@ const PackageCard: React.FC<{
             />
           </div>
         </div>
+        {pkg.isUps && (
+          <div className="flex flex-col gap-1 col-span-2 mt-1">
+            <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-tight">Valor do Frete UPS (BRL)</label>
+            <div className="relative">
+              <span className="absolute left-2 top-1.5 text-slate-500 text-[10px]">R$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={pkg.shippingFeeBrl ?? ''}
+                onChange={e => onChange(pkg.id, 'shippingFeeBrl', e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full bg-[#1e242b] border border-emerald-500/30 pl-7 text-white px-2 py-1.5 rounded-md focus:outline-none focus:border-emerald-500 text-xs"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Summary of this package */}
-      {(Number(pkg.valueBrl) > 0 || Number(pkg.taxBrl) > 0) && (
+      {(Number(pkg.valueBrl) > 0 || Number(pkg.taxBrl) > 0 || Number(pkg.shippingFeeBrl) > 0) && (
         <div className="mt-1 p-2 rounded bg-blue-500/5 border border-blue-500/10 flex justify-between items-center">
-          <span className="text-[10px] text-slate-500 font-medium">TOTAL (VALOR + TAXA):</span>
+          <span className="text-[10px] text-slate-500 font-medium">TOTAL (VALOR + TAXA + FRETE):</span>
           <span className="text-xs font-bold text-blue-400">
-            R$ {(Number(pkg.valueBrl || 0) + Number(pkg.taxBrl || 0)).toFixed(2)}
+            R$ {(Number(pkg.valueBrl || 0) + Number(pkg.taxBrl || 0) + Number(pkg.shippingFeeBrl || 0)).toFixed(2)}
           </span>
         </div>
       )}
@@ -145,6 +178,7 @@ const StockEntryForm: React.FC = () => {
   // Shipping & Packages
   const [iofBrl, setIofBrl] = useState<number | ''>('');
   const [packageCount, setPackageCount] = useState<number | ''>('');
+  const [hasUpsPackages, setHasUpsPackages] = useState<boolean>(false);
   const [packages, setPackages] = useState<any[]>([]);
 
   // Fees
@@ -169,7 +203,9 @@ const StockEntryForm: React.FC = () => {
         taxBrl: '',
         valueBrl: '',
         arrivedProducts: '',
-        status: 'Pendente'
+        status: 'Pendente',
+        isUps: false,
+        shippingFeeBrl: ''
       }));
       return [...prev, ...newPacks];
     });
@@ -196,6 +232,7 @@ const StockEntryForm: React.FC = () => {
         setUsdQuote(order.usdQuote);
         setIofBrl(order.iofBrl);
         setPackageCount(order.packageCount);
+        setHasUpsPackages(order.hasUpsPackages || false);
         setPackages(order.packages);
         setFactoryFeeBrl(order.factoryFeeBrl);
 
@@ -249,9 +286,10 @@ const StockEntryForm: React.FC = () => {
   const totalProductsUsd = productsList.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPriceUsd) || 0)), 0);
   const totalPackagesValueBrl = packages.reduce((sum, p) => sum + (Number(p.valueBrl) || 0), 0);
   const totalPackagesTaxBrl = packages.reduce((sum, p) => sum + (Number(p.taxBrl) || 0), 0);
+  const totalPackagesShippingBrl = packages.reduce((sum, p) => sum + (Number(p.shippingFeeBrl) || 0), 0);
   
   // Extras include everything except the base product price in USD
-  const totalExtrasBrl = totalPackagesValueBrl + totalPackagesTaxBrl + (Number(factoryFeeBrl) || 0) + (Number(iofBrl) || 0);
+  const totalExtrasBrl = totalPackagesValueBrl + totalPackagesTaxBrl + totalPackagesShippingBrl + (Number(factoryFeeBrl) || 0) + (Number(iofBrl) || 0);
   
   // Total BRL = (Products in USD * Quote) + Extras (Packages + Taxes + IOF + Fee)
   const grandTotalBrl = (totalProductsUsd * (Number(usdQuote) || 0)) + totalExtrasBrl;
@@ -400,8 +438,9 @@ const StockEntryForm: React.FC = () => {
         supplier,
         usdQuote: Number(usdQuote),
         iofBrl: Number(iofBrl) || 0,
+        hasUpsPackages,
         packageCount: Number(packageCount) || 0,
-        packages: packages.map(p => ({ ...p, taxBrl: Number(p.taxBrl) || 0, valueBrl: Number(p.valueBrl) || 0 })),
+        packages: packages.map(p => ({ ...p, taxBrl: Number(p.taxBrl) || 0, valueBrl: Number(p.valueBrl) || 0, isUps: p.isUps, shippingFeeBrl: Number(p.shippingFeeBrl) || 0 })),
         factoryFeeBrl: Number(factoryFeeBrl) || 0,
         products: finalProducts,
         totalProductsUsd,
@@ -675,6 +714,18 @@ const StockEntryForm: React.FC = () => {
                 className="w-full bg-[#1e242b] border border-[#2b333c] text-white px-4 py-2.5 rounded-lg focus:outline-none focus:border-blue-500"
               />
             </div>
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="checkbox"
+                id="hasUps"
+                checked={hasUpsPackages}
+                onChange={e => setHasUpsPackages(e.target.checked)}
+                className="size-4 rounded border-[#2b333c] bg-[#1e242b] checked:bg-blue-500 cursor-pointer"
+              />
+              <label htmlFor="hasUps" className="text-sm font-medium text-slate-300 cursor-pointer">
+                Existem pacotes por UPS?
+              </label>
+            </div>
           </div>
 
           <div className="bg-[#13191f] border border-[#1e242b] rounded-xl p-6 flex flex-col gap-4">
@@ -721,6 +772,7 @@ const StockEntryForm: React.FC = () => {
                         key={pkg.id} 
                         pkg={pkg} 
                         index={packages.findIndex(p => p.id === pkg.id)} 
+                        hasUpsPackages={hasUpsPackages}
                         onChange={handlePackageChange} 
                       />
                     ))}
@@ -741,6 +793,7 @@ const StockEntryForm: React.FC = () => {
                         key={pkg.id} 
                         pkg={pkg} 
                         index={packages.findIndex(p => p.id === pkg.id)} 
+                        hasUpsPackages={hasUpsPackages}
                         onChange={handlePackageChange} 
                       />
                     ))}
@@ -757,6 +810,7 @@ const StockEntryForm: React.FC = () => {
             <p className="flex justify-between md:gap-8">Total Produtos: <span className="font-semibold text-white">US$ {totalProductsUsd.toFixed(2)}</span></p>
             <p className="flex justify-between md:gap-8">Total Valor Pacotes (BRL): <span className="font-semibold text-white">R$ {totalPackagesValueBrl.toFixed(2)}</span></p>
             <p className="flex justify-between md:gap-8">Total Taxas/Impostos (BRL): <span className="font-semibold text-white">R$ {totalPackagesTaxBrl.toFixed(2)}</span></p>
+            <p className="flex justify-between md:gap-8">Total Frete UPS (BRL): <span className="font-semibold text-white">R$ {totalPackagesShippingBrl.toFixed(2)}</span></p>
             <p className="flex justify-between md:gap-8">Total IOF (BRL): <span className="font-semibold text-white">R$ {(Number(iofBrl) || 0).toFixed(2)}</span></p>
             <p className="flex justify-between md:gap-8">Fee Charge (BRL): <span className="font-semibold text-white">R$ {(Number(factoryFeeBrl) || 0).toFixed(2)}</span></p>
             

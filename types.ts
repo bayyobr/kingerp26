@@ -220,6 +220,8 @@ export interface PurchaseOrderPackage {
   valueBrl?: number;
   arrivedProducts?: string;
   status?: 'Pendente' | 'Recebido';
+  isUps?: boolean;
+  shippingFeeBrl?: number;
 }
 
 export interface PurchaseOrderProduct {
@@ -240,6 +242,7 @@ export interface PurchaseOrder {
   supplier: string;
   usdQuote: number;
   iofBrl: number;
+  hasUpsPackages?: boolean;
   packageCount: number;
   packages: PurchaseOrderPackage[];
   factoryFeeBrl: number;
