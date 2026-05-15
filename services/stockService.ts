@@ -275,5 +275,14 @@ export const stockService = {
             .eq('id', id);
 
         if (error) throw error;
+    },
+
+    async deletePurchaseOrder(id: string): Promise<void> {
+        const { error } = await supabase
+            .from('purchase_orders')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
     }
 };

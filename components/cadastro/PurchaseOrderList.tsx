@@ -24,6 +24,18 @@ const PurchaseOrderList: React.FC = () => {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este histórico de entrada? Esta ação não pode ser desfeita.')) {
+      try {
+        await stockService.deletePurchaseOrder(id);
+        setOrders(prev => prev.filter(o => o.id !== id));
+      } catch (error) {
+        console.error('Failed to delete order', error);
+        alert('Erro ao excluir a entrada.');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
@@ -125,6 +137,13 @@ const PurchaseOrderList: React.FC = () => {
                           title="Baixar PDF"
                         >
                           <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(order.id)}
+                          className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                          title="Excluir Entrada"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">delete</span>
                         </button>
                       </div>
                     </td>
