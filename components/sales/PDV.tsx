@@ -78,11 +78,15 @@ const PDV: React.FC = () => {
         }
     }, [selectedSellerId, cart, products]);
 
-    // Auto-confirm PIX payment for Shopee
+    // Auto-confirm PIX payment and Entrega for Shopee
     useEffect(() => {
         if (selectedSellerId === SHOPEE_SELLER_ID) {
+            if (saleType !== 'Entrega') {
+                setSaleType('Entrega');
+            }
+
             const subtotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
-            const correctTotal = Math.max(0, subtotal - discount + (saleType === 'Entrega' ? deliveryFee : 0));
+            const correctTotal = Math.max(0, subtotal - discount + deliveryFee);
             
             const isCorrect = payments.length === 1 && payments[0].method === 'PIX' && payments[0].amount === correctTotal;
             
@@ -431,7 +435,7 @@ const PDV: React.FC = () => {
             setClientCpf('');
             setDiscount(0);
             setCurrentMethod('');
-            setSaleType('Retirada');
+            setSaleType(selectedSellerId === SHOPEE_SELLER_ID ? 'Entrega' : 'Retirada');
             setDeliveryFee(0);
             clearPDVDraft();
             loadData(); // Refresh stock
