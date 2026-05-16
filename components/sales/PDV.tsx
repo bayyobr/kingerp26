@@ -73,12 +73,29 @@ const PDV: React.FC = () => {
                 }
             });
             
-            // Only update if the value changed to avoid infinite loops or unnecessary re-renders
-            if (totalShopeeFee !== discount) {
-                setDiscount(totalShopeeFee);
+            // Only update if the value changed
+            setDiscount(totalShopeeFee);
+        }
+    }, [selectedSellerId, cart, products]);
+
+    // Auto-confirm PIX payment for Shopee
+    useEffect(() => {
+        if (selectedSellerId === SHOPEE_SELLER_ID) {
+            const subtotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
+            const correctTotal = Math.max(0, subtotal - discount + (saleType === 'Entrega' ? deliveryFee : 0));
+            
+            const isCorrect = payments.length === 1 && payments[0].method === 'PIX' && payments[0].amount === correctTotal;
+            
+            if (!isCorrect && correctTotal > 0) {
+                setPayments([{
+                    method: 'PIX',
+                    amount: correctTotal,
+                }]);
+            } else if (correctTotal === 0 && payments.length > 0) {
+                setPayments([]);
             }
         }
-    }, [selectedSellerId, cart, products, discount]);
+    }, [selectedSellerId, cart, discount, saleType, deliveryFee, payments]);
 
     useEffect(() => {
         loadData();
@@ -272,6 +289,14 @@ const PDV: React.FC = () => {
         if (newQty <= 0) return removeFromCart(index);
 
         item.quantidade = newQty;
+        item.subtotal = item.quantidade * item.preco_unitario;
+        setCart(newCart);
+    };
+
+    const updatePrice = (index: number, newPrice: number) => {
+        const newCart = [...cart];
+        const item = newCart[index];
+        item.preco_unitario = newPrice;
         item.subtotal = item.quantidade * item.preco_unitario;
         setCart(newCart);
     };
@@ -546,9 +571,19 @@ const PDV: React.FC = () => {
                                         {item.variacao_nome && <span className="text-xs text-slate-500">{item.variacao_nome}</span>}
                                         <span className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">{item.tipo_item}</span>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="flex flex-col items-end">
                                         <span className="font-bold text-slate-700 dark:text-slate-300 block">{formatCurrency(item.subtotal)}</span>
-                                        <span className="text-xs text-slate-400">{item.quantidade} x {formatCurrency(item.preco_unitario)}</span>
+                                        <div className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
+                                            <span>{item.quantidade} x R$</span>
+                                            <input 
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={item.preco_unitario === 0 ? '' : item.preco_unitario}
+                                                onChange={e => updatePrice(idx, Number(e.target.value))}
+                                                className="w-14 bg-transparent border-b border-slate-300 dark:border-slate-600 outline-none text-right focus:border-primary px-0.5 text-slate-600 dark:text-slate-300"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-2 mt-1">
