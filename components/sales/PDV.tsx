@@ -624,6 +624,7 @@ const PDV: React.FC = () => {
                                     setSelectedSellerId(sellerId);
                                     if (sellerId === SHOPEE_SELLER_ID) {
                                         setCurrentMethod('PIX');
+                                        setSaleType('Entrega');
                                     }
                                 }}
                                 className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg p-2 text-sm outline-none text-slate-700 dark:text-white"
