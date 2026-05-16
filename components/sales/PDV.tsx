@@ -584,7 +584,13 @@ const PDV: React.FC = () => {
                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Vendedor</label>
                             <select
                                 value={selectedSellerId}
-                                onChange={e => setSelectedSellerId(e.target.value)}
+                                onChange={e => {
+                                    const sellerId = e.target.value;
+                                    setSelectedSellerId(sellerId);
+                                    if (sellerId === SHOPEE_SELLER_ID) {
+                                        setCurrentMethod('PIX');
+                                    }
+                                }}
                                 className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg p-2 text-sm outline-none text-slate-700 dark:text-white"
                             >
                                 <option value="">Selecione...</option>
