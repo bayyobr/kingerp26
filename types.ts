@@ -122,6 +122,7 @@ export interface VendedorStats {
 
   salesEvolution: { month: string; value: number }[];
   topProducts: TopProduct[];
+  recentSales: Venda[];
 }
 
 export interface Aparelho {

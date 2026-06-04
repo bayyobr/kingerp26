@@ -3,33 +3,42 @@ import { VendedorStats, Venda, TopProduct } from '../types';
 
 export const vendedorStatsService = {
   async getVendedorStats(vendedorId: string, days: number | 'custom', customRange?: { start: string, end: string }): Promise<VendedorStats> {
-    let startDate: Date;
+    let startDate: Date = new Date();
     let endDate: Date = new Date();
     
     if (days === 'custom' && customRange) {
       startDate = new Date(customRange.start);
+      startDate.setHours(0, 0, 0, 0);
       endDate = new Date(customRange.end);
+      endDate.setHours(23, 59, 59, 999);
     } else {
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - (days as number));
+      startDate.setHours(0, 0, 0, 0);
+      if (days > 1) {
+        startDate.setDate(startDate.getDate() - ((days as number) - 1));
+      }
     }
 
     const prevStartDate = new Date(startDate);
     const duration = endDate.getTime() - startDate.getTime();
-    prevStartDate.setTime(startDate.getTime() - duration);
+    prevStartDate.setTime(startDate.getTime() - duration - 1); // shifted by duration + 1ms to not overlap
     const prevEndDate = new Date(startDate);
+    prevEndDate.setTime(startDate.getTime() - 1);
 
     // Fetch current period sales
-    const { data: currentSales } = await supabase
+    const { data: currentSales, error: currentSalesError } = await supabase
       .from('vendas')
-      .select('*, itens(*)')
+      .select('*, itens:vendas_itens(*)')
       .eq('vendedor_id', vendedorId)
       .eq('status', 'Concluída')
       .gte('created_at', startDate.toISOString())
       .lte('created_at', endDate.toISOString());
 
+    if (currentSalesError) {
+      console.error('Error fetching current sales in vendedorStatsService:', currentSalesError);
+    }
+
     // Fetch previous period sales for comparison
-    const { data: prevSales } = await supabase
+    const { data: prevSales, error: prevSalesError } = await supabase
       .from('vendas')
       .select('total')
       .eq('vendedor_id', vendedorId)
@@ -37,11 +46,19 @@ export const vendedorStatsService = {
       .gte('created_at', prevStartDate.toISOString())
       .lte('created_at', prevEndDate.toISOString());
 
-    const { data: vendedor } = await supabase
+    if (prevSalesError) {
+      console.error('Error fetching previous sales in vendedorStatsService:', prevSalesError);
+    }
+
+    const { data: vendedor, error: vendedorError } = await supabase
       .from('vendedores')
       .select('comissao_percentual')
       .eq('id', vendedorId)
       .single();
+
+    if (vendedorError) {
+      console.error('Error fetching vendedor details in vendedorStatsService:', vendedorError);
+    }
 
     const commissionRate = (vendedor?.comissao_percentual || 0) / 100;
 
@@ -60,12 +77,14 @@ export const vendedorStatsService = {
 
     (currentSales || []).forEach((sale: any) => {
       (sale.itens || []).forEach((item: any) => {
+        const itemSubtotal = Number(item.subtotal) || 0;
+        const itemQty = Number(item.quantidade) || 0;
         const existing = productMap.get(item.item_nome) || { qty: 0, total: 0 };
         productMap.set(item.item_nome, {
-          qty: existing.qty + item.quantidade,
-          total: existing.total + item.subtotal
+          qty: existing.qty + itemQty,
+          total: existing.total + itemSubtotal
         });
-        totalValue += item.subtotal;
+        totalValue += itemSubtotal;
       });
     });
 
@@ -83,12 +102,16 @@ export const vendedorStatsService = {
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     
-    const { data: evolutionData } = await supabase
+    const { data: evolutionData, error: evolutionError } = await supabase
       .from('vendas')
       .select('total, created_at')
       .eq('vendedor_id', vendedorId)
       .eq('status', 'Concluída')
       .gte('created_at', sixMonthsAgo.toISOString());
+
+    if (evolutionError) {
+      console.error('Error fetching sales evolution in vendedorStatsService:', evolutionError);
+    }
 
     const evolution = this.formatEvolution(evolutionData || []);
 
@@ -102,12 +125,13 @@ export const vendedorStatsService = {
       averageTicketDiff: calculateDiff(currentData.ticket, prevData.ticket),
       totalCommissionDiff: calculateDiff(currentData.commission, prevData.commission),
       salesEvolution: evolution,
-      topProducts
+      topProducts,
+      recentSales: currentSales || []
     };
   },
 
   calculateMetrics(sales: any[], commissionRate: number) {
-    const total = sales.reduce((acc, s) => acc + (s.total || 0), 0);
+    const total = sales.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
     const count = sales.length;
     const ticket = count > 0 ? total / count : 0;
     const commission = total * commissionRate;
@@ -130,7 +154,7 @@ export const vendedorStatsService = {
       const d = new Date(s.created_at);
       const label = `${months[d.getMonth()]}/${d.getFullYear().toString().slice(2)}`;
       if (map.has(label)) {
-        map.set(label, (map.get(label) || 0) + s.total);
+        map.set(label, (map.get(label) || 0) + (Number(s.total) || 0));
       }
     });
 

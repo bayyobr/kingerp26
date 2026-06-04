@@ -47,16 +47,28 @@ export const vendedorService = {
         return data;
     },
 
-    async delete(id: string): Promise<void> {
+    async delete(id: string): Promise<'deleted' | 'deactivated'> {
         const { error } = await supabase
             .from('vendedores')
             .delete()
             .eq('id', id);
 
         if (error) {
+            if (error.code === '23503' || error.message?.includes('foreign key constraint')) {
+                const { error: updateError } = await supabase
+                    .from('vendedores')
+                    .update({ ativo: false })
+                    .eq('id', id);
+                if (updateError) {
+                    console.error('Error deactivating vendedor:', updateError);
+                    throw updateError;
+                }
+                return 'deactivated';
+            }
             console.error('Error deleting vendedor:', error);
             throw error;
         }
+        return 'deleted';
     },
 
     async uploadPhoto(file: File, path: string): Promise<string | null> {

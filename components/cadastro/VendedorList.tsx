@@ -33,7 +33,10 @@ export const VendedorList = () => {
     const handleDelete = async (id: string) => {
         if (confirm('Tem certeza que deseja excluir este vendedor?')) {
             try {
-                await vendedorService.delete(id);
+                const result = await vendedorService.delete(id);
+                if (result === 'deactivated') {
+                    alert('Este vendedor possui vendas ou registros atrelados e não pode ser excluído do banco de dados. Ele foi inativado com sucesso no lugar de ser excluído.');
+                }
                 loadData();
             } catch (error) {
                 alert('Erro ao excluir vendedor.');

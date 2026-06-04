@@ -273,16 +273,29 @@ const VendedorProfile: React.FC<VendedorProfileProps> = ({ vendedor, onBack }) =
                        </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-border-dark">
-                       {/* This would normally load a fresh slice of sales, for now we can show summary or mock */}
-                       <tr className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                          <td className="p-3 font-medium text-slate-400" colSpan={3}>
-                             No resumo total deste período, este vendedor gerou:
-                          </td>
-                       </tr>
-                       <tr>
-                          <td className="p-4 font-bold text-slate-700 dark:text-slate-300">Resumo Consolidado</td>
-                          <td className="p-4 font-bold text-emerald-500">{formatCurrency(stats.totalSold)}</td>
-                          <td className="p-4 text-right font-bold text-primary">{formatCurrency(stats.totalCommission)}</td>
+                       {stats.recentSales.map((sale, idx) => {
+                         const commissionValue = Number(sale.total) * ((vendedor.comissao_percentual || 0) / 100);
+                         return (
+                           <tr key={sale.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                              <td className="p-3 text-slate-600 dark:text-slate-400">
+                                {new Date(sale.created_at || '').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                              <td className="p-3 font-bold text-emerald-500">{formatCurrency(Number(sale.total))}</td>
+                              <td className="p-3 text-right font-bold text-primary">{formatCurrency(commissionValue)}</td>
+                           </tr>
+                         );
+                       })}
+                       {stats.recentSales.length === 0 && (
+                         <tr>
+                            <td className="p-8 text-center text-slate-500" colSpan={3}>
+                               Nenhuma venda registrada neste período.
+                            </td>
+                         </tr>
+                       )}
+                       <tr className="bg-slate-50 dark:bg-surface-darker">
+                          <td className="p-4 font-bold text-slate-700 dark:text-slate-300 text-right uppercase text-[10px]">Total do Período</td>
+                          <td className="p-4 font-bold text-emerald-500 text-sm">{formatCurrency(stats.totalSold)}</td>
+                          <td className="p-4 text-right font-bold text-primary text-sm">{formatCurrency(stats.totalCommission)}</td>
                        </tr>
                     </tbody>
                  </table>
