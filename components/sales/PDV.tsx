@@ -60,27 +60,39 @@ const PDV: React.FC = () => {
         return dif + pad(tzo / 60) + ':' + pad(tzo % 60);
     };
 
-    // Auto-calculate Shopee Discount
+    // Auto-calculate Shopee or TikTok Discount
     useEffect(() => {
-        if (selectedSellerId === SHOPEE_SELLER_ID) {
-            let totalShopeeFee = 0;
+        const selectedSeller = sellers.find(s => s.id === selectedSellerId);
+        const isShopee = selectedSellerId === SHOPEE_SELLER_ID || (selectedSeller && selectedSeller.nome.toLowerCase().includes('shopee'));
+        const isTikTok = selectedSeller && selectedSeller.nome.toLowerCase().includes('tiktok');
+
+        if (isShopee || isTikTok) {
+            let totalFee = 0;
             cart.forEach(item => {
                 if (item.tipo_item === 'produto') {
                     const product = products.find(p => p.id === item.item_id);
-                    if (product && product.shopee_fee_brl) {
-                        totalShopeeFee += product.shopee_fee_brl * item.quantidade;
+                    if (product) {
+                        if (isShopee && product.shopee_fee_brl) {
+                            totalFee += product.shopee_fee_brl * item.quantidade;
+                        } else if (isTikTok && product.tiktok_fee_brl) {
+                            totalFee += product.tiktok_fee_brl * item.quantidade;
+                        }
                     }
                 }
             });
             
             // Only update if the value changed
-            setDiscount(totalShopeeFee);
+            setDiscount(totalFee);
         }
-    }, [selectedSellerId, cart, products]);
+    }, [selectedSellerId, cart, products, sellers]);
 
-    // Auto-confirm PIX payment and Entrega for Shopee
+    // Auto-confirm PIX payment and Entrega for Shopee/TikTok
     useEffect(() => {
-        if (selectedSellerId === SHOPEE_SELLER_ID) {
+        const selectedSeller = sellers.find(s => s.id === selectedSellerId);
+        const isShopee = selectedSellerId === SHOPEE_SELLER_ID || (selectedSeller && selectedSeller.nome.toLowerCase().includes('shopee'));
+        const isTikTok = selectedSeller && selectedSeller.nome.toLowerCase().includes('tiktok');
+
+        if (isShopee || isTikTok) {
             if (saleType !== 'Entrega') {
                 setSaleType('Entrega');
             }
@@ -99,7 +111,7 @@ const PDV: React.FC = () => {
                 setPayments([]);
             }
         }
-    }, [selectedSellerId, cart, discount, saleType, deliveryFee, payments]);
+    }, [selectedSellerId, cart, discount, saleType, deliveryFee, payments, sellers]);
 
     useEffect(() => {
         loadData();
@@ -435,7 +447,10 @@ const PDV: React.FC = () => {
             setClientCpf('');
             setDiscount(0);
             setCurrentMethod('');
-            setSaleType(selectedSellerId === SHOPEE_SELLER_ID ? 'Entrega' : 'Retirada');
+            const sel = sellers.find(s => s.id === selectedSellerId);
+            const isShopeeSel = selectedSellerId === SHOPEE_SELLER_ID || (sel && sel.nome.toLowerCase().includes('shopee'));
+            const isTikTokSel = sel && sel.nome.toLowerCase().includes('tiktok');
+            setSaleType((isShopeeSel || isTikTokSel) ? 'Entrega' : 'Retirada');
             setDeliveryFee(0);
             clearPDVDraft();
             loadData(); // Refresh stock
@@ -626,7 +641,10 @@ const PDV: React.FC = () => {
                                 onChange={e => {
                                     const sellerId = e.target.value;
                                     setSelectedSellerId(sellerId);
-                                    if (sellerId === SHOPEE_SELLER_ID) {
+                                    const sel = sellers.find(s => s.id === sellerId);
+                                    const isShopeeSel = sellerId === SHOPEE_SELLER_ID || (sel && sel.nome.toLowerCase().includes('shopee'));
+                                    const isTikTokSel = sel && sel.nome.toLowerCase().includes('tiktok');
+                                    if (isShopeeSel || isTikTokSel) {
                                         setCurrentMethod('PIX');
                                         setSaleType('Entrega');
                                     }

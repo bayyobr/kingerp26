@@ -5,7 +5,30 @@ import { productService } from '../../services/productService';
 import NumberInput from '../common/NumberInput';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
 
-// Moved outside to prevent re-render focus loss
+// Helper to auto-calculate TikTok Shop Fee based on product name patterns
+const getAutomaticTiktokFee = (name: string): number | undefined => {
+    const lowerName = name.toLowerCase();
+    
+    // Check for "xr e 11 para 17 pro" conversion housings:
+    // XR or 11 converting to another model
+    const hasSource = lowerName.includes('xr') || /\b11\b/.test(lowerName);
+    const hasTransition = lowerName.includes('para') || lowerName.includes(' p/');
+    const hasTarget = lowerName.includes('pro') || lowerName.includes('max') || /\b1[2-7]\b/.test(lowerName);
+    
+    if (hasSource && hasTransition && hasTarget) {
+        return 39.08;
+    }
+    
+    // Check for "capas indução e basica colorida":
+    const isCapa = lowerName.includes('capa') || lowerName.includes('case');
+    const isSpecialCapa = lowerName.includes('indu') || lowerName.includes('basi') || lowerName.includes('colorid');
+                          
+    if (isCapa && isSpecialCapa) {
+        return 9.40;
+    }
+    
+    return undefined;
+};
 
 const ProductForm: React.FC = () => {
     const navigate = useNavigate();
@@ -102,6 +125,16 @@ const ProductForm: React.FC = () => {
             setFormData(prev => ({ ...prev, sku: `${prefix}-${random}` }));
         }
     }, [formData.name]);
+
+    // Auto-suggest TikTok Shop Fee based on name
+    useEffect(() => {
+        if (formData.name) {
+            const autoFee = getAutomaticTiktokFee(formData.name);
+            if (autoFee !== undefined && !formData.tiktok_fee_brl) {
+                setFormData(prev => ({ ...prev, tiktok_fee_brl: autoFee }));
+            }
+        }
+    }, [formData.name, formData.tiktok_fee_brl]);
 
     const loadProduct = async (productId: string) => {
         try {
@@ -475,6 +508,13 @@ const ProductForm: React.FC = () => {
                             />
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-slate-500 mb-1">Margem de Lucro</label>
+                            <div className={`px-4 py-2 rounded-lg border border-transparent font-bold h-[42px] flex items-center ${profitMargin > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                                {profitMargin.toFixed(1)}%
+                            </div>
+                        </div>
+
+                        <div>
                             <label className="block text-sm font-medium text-orange-600 dark:text-orange-400 mb-1">Taxa Shopee (R$)</label>
                             <NumberInput
                                 value={formData.shopee_fee_brl || 0}
@@ -483,10 +523,12 @@ const ProductForm: React.FC = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-500 mb-1">Margem de Lucro</label>
-                            <div className={`px-4 py-2 rounded-lg border border-transparent font-bold ${profitMargin > 0 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                                {profitMargin.toFixed(1)}%
-                            </div>
+                            <label className="block text-sm font-medium text-teal-600 dark:text-teal-400 mb-1">Taxa TikTok Shop (R$)</label>
+                            <NumberInput
+                                value={formData.tiktok_fee_brl || 0}
+                                onChange={(val: number) => setFormData({ ...formData, tiktok_fee_brl: val })}
+                                className="w-full px-4 py-2 rounded-lg border border-teal-200 dark:border-teal-900/50 bg-teal-50/30 dark:bg-teal-900/10 focus:outline-none focus:ring-2 focus:ring-teal-500/50 font-bold text-teal-700 dark:text-teal-300"
+                            />
                         </div>
                     </div>
                 </div>

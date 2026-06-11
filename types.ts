@@ -81,6 +81,7 @@ export interface Product {
   variations?: Variation[];
   salesCount?: number;
   shopee_fee_brl?: number;
+  tiktok_fee_brl?: number;
 }
 
 export interface Vendedor {
