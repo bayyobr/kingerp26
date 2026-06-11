@@ -4,31 +4,7 @@ import { Product, Variation } from '../../types';
 import { productService } from '../../services/productService';
 import NumberInput from '../common/NumberInput';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
-
-// Helper to auto-calculate TikTok Shop Fee based on product name patterns
-const getAutomaticTiktokFee = (name: string): number | undefined => {
-    const lowerName = name.toLowerCase();
-    
-    // Check for "xr e 11 para 17 pro" conversion housings:
-    // XR or 11 converting to another model
-    const hasSource = lowerName.includes('xr') || /\b11\b/.test(lowerName);
-    const hasTransition = lowerName.includes('para') || lowerName.includes(' p/');
-    const hasTarget = lowerName.includes('pro') || lowerName.includes('max') || /\b1[2-7]\b/.test(lowerName);
-    
-    if (hasSource && hasTransition && hasTarget) {
-        return 39.08;
-    }
-    
-    // Check for "capas indução e basica colorida":
-    const isCapa = lowerName.includes('capa') || lowerName.includes('case');
-    const isSpecialCapa = lowerName.includes('indu') || lowerName.includes('basi') || lowerName.includes('colorid');
-                          
-    if (isCapa && isSpecialCapa) {
-        return 9.40;
-    }
-    
-    return undefined;
-};
+import { getAutomaticTiktokFee } from '../../utils/formatters';
 
 const ProductForm: React.FC = () => {
     const navigate = useNavigate();

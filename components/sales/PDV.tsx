@@ -6,7 +6,7 @@ import { salesService } from '../../services/salesService';
 import { clientService } from '../../services/clientService';
 import { supabase } from '../../services/supabase';
 import { Client, Product, Vendedor, Aparelho, PaymentMethod, VendaItem, Venda, PaymentDetail } from '../../types';
-import { formatPhone, formatCPF } from '../../utils/formatters';
+import { formatPhone, formatCPF, getAutomaticTiktokFee } from '../../utils/formatters';
 import { generateDeviceTermPDF } from '../../utils/pdfGenerator';
 
 const PDV: React.FC = () => {
@@ -74,8 +74,13 @@ const PDV: React.FC = () => {
                     if (product) {
                         if (isShopee && product.shopee_fee_brl) {
                             totalFee += product.shopee_fee_brl * item.quantidade;
-                        } else if (isTikTok && product.tiktok_fee_brl) {
-                            totalFee += product.tiktok_fee_brl * item.quantidade;
+                        } else if (isTikTok) {
+                            const fee = (product.tiktok_fee_brl !== undefined && product.tiktok_fee_brl > 0)
+                                ? product.tiktok_fee_brl
+                                : getAutomaticTiktokFee(product.name);
+                            if (fee) {
+                                totalFee += fee * item.quantidade;
+                            }
                         }
                     }
                 }
