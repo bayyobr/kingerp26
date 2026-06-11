@@ -60,13 +60,14 @@ const PDV: React.FC = () => {
         return dif + pad(tzo / 60) + ':' + pad(tzo % 60);
     };
 
-    // Auto-calculate Shopee or TikTok Discount
+    // Auto-calculate Shopee, TikTok or Mercado Livre Discount
     useEffect(() => {
         const selectedSeller = sellers.find(s => s.id === selectedSellerId);
         const isShopee = selectedSellerId === SHOPEE_SELLER_ID || (selectedSeller && selectedSeller.nome.toLowerCase().includes('shopee'));
         const isTikTok = selectedSeller && selectedSeller.nome.toLowerCase().includes('tiktok');
+        const isMercadoLivre = selectedSeller && (selectedSeller.nome.toLowerCase().includes('mercado livre') || selectedSeller.nome.toLowerCase().includes('mercadolivre'));
 
-        if (isShopee || isTikTok) {
+        if (isShopee || isTikTok || isMercadoLivre) {
             let totalFee = 0;
             cart.forEach(item => {
                 if (item.tipo_item === 'produto') {
@@ -81,6 +82,8 @@ const PDV: React.FC = () => {
                             if (fee) {
                                 totalFee += fee * item.quantidade;
                             }
+                        } else if (isMercadoLivre && product.mercadolivre_fee_brl) {
+                            totalFee += product.mercadolivre_fee_brl * item.quantidade;
                         }
                     }
                 }
@@ -91,13 +94,14 @@ const PDV: React.FC = () => {
         }
     }, [selectedSellerId, cart, products, sellers]);
 
-    // Auto-confirm PIX payment and Entrega for Shopee/TikTok
+    // Auto-confirm PIX payment and Entrega for Shopee/TikTok/Mercado Livre
     useEffect(() => {
         const selectedSeller = sellers.find(s => s.id === selectedSellerId);
         const isShopee = selectedSellerId === SHOPEE_SELLER_ID || (selectedSeller && selectedSeller.nome.toLowerCase().includes('shopee'));
         const isTikTok = selectedSeller && selectedSeller.nome.toLowerCase().includes('tiktok');
+        const isMercadoLivre = selectedSeller && (selectedSeller.nome.toLowerCase().includes('mercado livre') || selectedSeller.nome.toLowerCase().includes('mercadolivre'));
 
-        if (isShopee || isTikTok) {
+        if (isShopee || isTikTok || isMercadoLivre) {
             if (saleType !== 'Entrega') {
                 setSaleType('Entrega');
             }
@@ -455,7 +459,8 @@ const PDV: React.FC = () => {
             const sel = sellers.find(s => s.id === selectedSellerId);
             const isShopeeSel = selectedSellerId === SHOPEE_SELLER_ID || (sel && sel.nome.toLowerCase().includes('shopee'));
             const isTikTokSel = sel && sel.nome.toLowerCase().includes('tiktok');
-            setSaleType((isShopeeSel || isTikTokSel) ? 'Entrega' : 'Retirada');
+            const isMercadoLivreSel = sel && (sel.nome.toLowerCase().includes('mercado livre') || sel.nome.toLowerCase().includes('mercadolivre'));
+            setSaleType((isShopeeSel || isTikTokSel || isMercadoLivreSel) ? 'Entrega' : 'Retirada');
             setDeliveryFee(0);
             clearPDVDraft();
             loadData(); // Refresh stock

@@ -506,6 +506,14 @@ const ProductForm: React.FC = () => {
                                 className="w-full px-4 py-2 rounded-lg border border-teal-200 dark:border-teal-900/50 bg-teal-50/30 dark:bg-teal-900/10 focus:outline-none focus:ring-2 focus:ring-teal-500/50 font-bold text-teal-700 dark:text-teal-300"
                             />
                         </div>
+                        <div>
+                            <label className="block text-sm font-medium text-yellow-600 dark:text-yellow-400 mb-1">Taxa Mercado Livre (R$)</label>
+                            <NumberInput
+                                value={formData.mercadolivre_fee_brl || 0}
+                                onChange={(val: number) => setFormData({ ...formData, mercadolivre_fee_brl: val })}
+                                className="w-full px-4 py-2 rounded-lg border border-yellow-200 dark:border-yellow-900/50 bg-yellow-50/30 dark:bg-yellow-900/10 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 font-bold text-yellow-700 dark:text-yellow-300"
+                            />
+                        </div>
                     </div>
                 </div>
 

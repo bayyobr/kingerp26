@@ -215,6 +215,7 @@ function mapToProduct(data: any): Product {
         variations: data.variations || [],
         shopee_fee_brl: data.shopee_fee_brl,
         tiktok_fee_brl: data.tiktok_fee_brl,
+        mercadolivre_fee_brl: data.mercadolivre_fee_brl,
     };
 }
 
@@ -236,5 +237,6 @@ function mapToDbProduct(product: any): any {
         variations: product.variations || [],
         shopee_fee_brl: product.shopee_fee_brl,
         tiktok_fee_brl: product.tiktok_fee_brl,
+        mercadolivre_fee_brl: product.mercadolivre_fee_brl,
     };
 }
