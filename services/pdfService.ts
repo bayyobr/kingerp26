@@ -13,13 +13,13 @@ export const generateSalePDF = (sale: Venda) => {
     // --- HEADER ---
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('KING CELULARES', 105, y, { align: 'center' });
+    doc.text('KING CARCAÇAS', 105, y, { align: 'center' });
     y += 7;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('Rua Endereço Exemplo, 123', 105, y, { align: 'center' });
+    doc.text('Rua Dias D\'Ávilla, 34 - Barra', 105, y, { align: 'center' });
     y += 5;
-    doc.text('Tel: (11) 99999-9999', 105, y, { align: 'center' });
+    doc.text('Tel: 71984303575', 105, y, { align: 'center' });
 
     y += 10;
     doc.line(10, y, 200, y);
@@ -127,22 +127,27 @@ export const generatePDF = (order: ServiceOrder) => {
     // Logo Area (Left)
     doc.setFillColor(255, 255, 255);
     doc.rect(10, y, 50, 25);
-    // Placeholder Logo Art
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.5);
-    doc.roundedRect(12, y + 2, 8, 14, 1, 1); // Phone icon
-    doc.circle(16, y + 13, 0.5); // Button
+    
+    // Placeholder for Company Logo
+    // Para usar a logo real, converta a imagem para base64 e use doc.addImage(logoBase64, 'PNG', 12, y + 2, 12, 12);
+    // Temporary Crown Icon Drawing
+    doc.setFillColor(0);
+    doc.triangle(12, y + 10, 14, y + 4, 16, y + 10, 'F');
+    doc.triangle(14, y + 10, 18, y + 2, 22, y + 10, 'F');
+    doc.triangle(20, y + 10, 22, y + 4, 24, y + 10, 'F');
+    doc.rect(12, y + 10, 12, 2, 'F');
+
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('KING', 24, y + 8);
+    doc.text('KING', 26, y + 8);
     doc.setFontSize(10);
-    doc.text('CELULARES', 24, y + 13);
+    doc.text('CARCAÇAS', 26, y + 13);
 
     // Company Contact Info
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text('Rua Endereço Exemplo, 123', 24, y + 18);
-    doc.text('(11) 99999-9999', 24, y + 22);
+    doc.text('Rua Dias D\'Ávilla, 34 - Barra', 26, y + 18);
+    doc.text('71984303575', 26, y + 22);
 
     // Center Title
     doc.setFontSize(22);
@@ -389,11 +394,11 @@ export const generatePurchaseOrderPDF = (order: PurchaseOrder) => {
     // --- HEADER ---
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('KING CELULARES - IMPORTAÇÃO', 105, y, { align: 'center' });
+    doc.text('KING CARCAÇAS - IMPORTAÇÃO', 105, y, { align: 'center' });
     y += 7;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('Rua Endereço Exemplo, 123 | Tel: (11) 99999-9999', 105, y, { align: 'center' });
+    doc.text('Rua Dias D\'Ávilla, 34 - Barra | Tel: 71984303575', 105, y, { align: 'center' });
     
     y += 10;
     doc.line(10, y, 200, y);
