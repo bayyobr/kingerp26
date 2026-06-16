@@ -119,259 +119,450 @@ export const generatePDF = (order: ServiceOrder) => {
     let y = 10; // Vertical cursor
 
     // Helper colors
-    const black = [0, 0, 0] as [number, number, number];
-    const darkGray = [60, 60, 60] as [number, number, number];
-    const lightGray = [240, 240, 240] as [number, number, number];
+    const primaryDark = [17, 17, 17] as [number, number, number]; // #111111
+    const goldColor = [212, 160, 23] as [number, number, number]; // #D4A017
+    const borderGray = [220, 220, 220] as [number, number, number];
+    const textDark = [30, 30, 30] as [number, number, number];
+    const textGray = [120, 120, 120] as [number, number, number];
 
-    // --- HEADER ---
-    // Logo Area (Left)
+    // Format Date helper
+    const dateStr = formatDate(order.entryDate) || formatDate(new Date().toISOString());
+
+    // --- HEADER (Dark #111111) ---
+    doc.setFillColor(...primaryDark);
+    doc.rect(10, y, 190, 24, 'F');
+
+    // 1. Vector Logo: Crown + "KING CARCAÇAS" (White)
     doc.setFillColor(255, 255, 255);
-    doc.rect(10, y, 50, 25);
-    
-    // Placeholder for Company Logo
-    // Para usar a logo real, converta a imagem para base64 e use doc.addImage(logoBase64, 'PNG', 12, y + 2, 12, 12);
-    // Temporary Crown Icon Drawing
-    doc.setFillColor(0);
-    doc.triangle(12, y + 10, 14, y + 4, 16, y + 10, 'F');
-    doc.triangle(14, y + 10, 18, y + 2, 22, y + 10, 'F');
-    doc.triangle(20, y + 10, 22, y + 4, 24, y + 10, 'F');
-    doc.rect(12, y + 10, 12, 2, 'F');
+    // Draw Crown
+    doc.rect(15, y + 12, 10, 1.5, 'F'); // Crown base
+    doc.triangle(15, y + 12, 17.5, y + 7, 20, y + 12, 'F'); // Left peak
+    doc.triangle(20, y + 12, 22.5, y + 7, 25, y + 12, 'F'); // Right peak
+    doc.triangle(17, y + 12, 20, y + 5, 23, y + 12, 'F'); // Center peak (taller)
 
-    doc.setFontSize(14);
+    // Logo Text
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text('KING', 26, y + 8);
-    doc.setFontSize(10);
-    doc.text('CARCAÇAS', 26, y + 13);
-
-    // Company Contact Info
-    doc.setFontSize(7);
+    doc.setFontSize(14);
+    doc.text('KING', 28, y + 11);
+    doc.setFontSize(6.5);
     doc.setFont('helvetica', 'normal');
-    doc.text('Rua Dias D\'Ávilla, 34 - Barra', 26, y + 18);
-    doc.text('71984303575', 26, y + 22);
+    doc.text('CARCAÇAS', 28, y + 15);
 
-    // Center Title
-    doc.setFontSize(22);
-    doc.setTextColor(...darkGray);
-    doc.text('ASSISTÊNCIA', 105, y + 10, { align: 'center' });
-    doc.text('TÉCNICA', 105, y + 18, { align: 'center' });
-
-    // Right OS Box
-    doc.setFontSize(10);
-    doc.setTextColor(0);
-    doc.text('Ordem de serviço', 160, y + 5);
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(160, y + 7, 40, 12, 2, 2);
-    doc.setFontSize(14);
+    // Center Title "ORDEM DE SERVIÇO"
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Nº: ${order.osNumber.replace(/[^0-9]/g, '').slice(-4)}`, 180, y + 15, { align: 'center' });
-
-    y += 35;
-
-    // --- CLIENT INFO ---
-    // Helper for lines
-    const drawField = (label: string, value: string, x: number, lineY: number, width: number) => {
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text(label, x, lineY - 2);
-
-        doc.setFont('helvetica', 'normal');
-        if (value) doc.text(value, x + doc.getTextWidth(label) + 2, lineY - 2);
-
-        doc.line(x + doc.getTextWidth(label) + 1, lineY, x + width, lineY);
-    };
-
-    doc.setLineWidth(0.1);
-    drawField('Nome:', order.client.name, 10, y, 190);
-    y += 8;
-    drawField('RG/CPF:', order.client.cpf, 10, y, 90);
-    drawField('Telefone:', order.client.phone, 110, y, 90);
-
-    y += 10;
-
-    // --- CHECKLIST ---
-    // Header Bar
-    doc.setFillColor(...darkGray);
-    doc.rect(10, y, 190, 7, 'F');
-    doc.setTextColor(255);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Checklist', 15, y + 5);
-
-    y += 8;
-
-    // Checklist Data Preparation
-    const checks = [
-        { k: 'Tela/Display', v: order.checklist.display },
-        { k: 'Touch Screen', v: order.checklist.touch },
-        { k: 'Botões', v: order.checklist.buttons },
-        { k: 'Sensores', v: order.checklist.proxSensor },
-        { k: 'Câmeras', v: order.checklist.frontCamera }, // Logic needed if split
-        { k: 'Wi-Fi/Bluetooth', v: order.checklist.wifi },
-        { k: 'Sinal/Chip', v: order.checklist.signal },
-        { k: 'Alto Falante', v: order.checklist.speaker },
-        { k: 'Microfone', v: order.checklist.mic },
-        { k: 'Conector Carga', v: order.checklist.connector },
-        { k: 'Face ID', v: order.checklist.faceId },
-        { k: 'Bateria', v: order.checklist.battery },
-        { k: 'NFC', v: order.checklist.nfc },
-        { k: 'Auricular', v: order.checklist.earpiece },
-    ];
-
-    // Custom Grid drawing to match "SIM [ ] NÃO [ ]" style
-    doc.setTextColor(0);
+    doc.setFontSize(16);
+    doc.text('ORDEM DE SERVIÇO', 105, y + 11, { align: 'center' });
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(180, 180, 180);
+    doc.text('Assistência Técnica em Eletrônicos', 105, y + 15, { align: 'center' });
+
+    // Right Side (OS Number & Date)
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7.5);
+    doc.text('OS Nº', 185, y + 8, { align: 'right' });
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`#${order.osNumber.replace(/[^0-9]/g, '').slice(-4)}`, 185, y + 14, { align: 'right' });
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(180, 180, 180);
+    doc.text(dateStr, 185, y + 19, { align: 'right' });
+
+    y += 24;
+
+    // Gold Divider Line (#D4A017)
+    doc.setFillColor(...goldColor);
+    doc.rect(10, y, 190, 1.2, 'F');
+
+    y += 7;
+
+    // Underline Input Field Helper
+    const drawUnderlineField = (label: string, value: string, x: number, lineY: number, width: number) => {
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...textGray);
+        doc.text(label.toUpperCase(), x, lineY - 2.5);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...textDark);
+        doc.setFontSize(8.5);
+        if (value) {
+            doc.text(value, x, lineY - 0.5);
+        } else {
+            doc.setTextColor(200, 200, 200);
+            doc.text('--------------------------', x, lineY - 0.5);
+        }
+
+        doc.setDrawColor(...borderGray);
+        doc.setLineWidth(0.2);
+        doc.line(x, lineY, x + width, lineY);
+    };
+
+    // --- DADOS DO CLIENTE ---
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textGray);
+    doc.text('DADOS DO CLIENTE', 10, y);
+    y += 6;
+
+    drawUnderlineField('Nome Completo', order.client.name, 10, y, 120);
+    drawUnderlineField('Telefone', order.client.phone, 135, y, 65);
+    y += 10;
+    drawUnderlineField('RG / CPF', order.client.cpf, 10, y, 60);
+    const clientEmail = (order.client as any).email || '';
+    drawUnderlineField('E-Mail', clientEmail, 75, y, 125);
+
+    y += 12;
+
+    // --- DADOS DO APARELHO ---
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textGray);
+    doc.text('DADOS DO APARELHO', 10, y);
+    y += 6;
+
+    drawUnderlineField('Modelo', `${order.device.brand} ${order.device.model} ${order.device.color}`, 10, y, 60);
+    drawUnderlineField('IMEI', order.device.imei, 75, y, 60);
+    drawUnderlineField('Senha de desbloqueio', order.device.password || '', 140, y, 60);
+
+    y += 13;
+
+    // --- CHECKLIST DE ENTRADA ---
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textGray);
+    doc.text('CHECKLIST DE ENTRADA', 10, y);
+    y += 4;
+
+    const checks = [
+        { label: 'Tela / Display', value: order.checklist.display },
+        { label: 'Touch Screen', value: order.checklist.touch },
+        { label: 'Botões', value: order.checklist.buttons },
+        { label: 'Câmeras', value: order.checklist.frontCamera },
+        { label: 'Wi-Fi / Bluetooth', value: order.checklist.wifi },
+        { label: 'Sinal / Chip', value: order.checklist.signal },
+        { label: 'Sensores', value: order.checklist.proxSensor },
+        { label: 'Alto Falante', value: order.checklist.speaker },
+        { label: 'Microfone', value: order.checklist.mic },
+        { label: 'Conector de Carga', value: order.checklist.connector },
+        { label: 'Face ID', value: order.checklist.faceId },
+        { label: 'Bateria', value: order.checklist.battery },
+        { label: 'NFC', value: order.checklist.nfc },
+        { label: 'Auricular', value: order.checklist.earpiece },
+    ];
 
     let colX = 10;
     let rowY = y;
-    const colWidth = 95;
+    const colWidth = 90;
     const rowHeight = 6;
 
     checks.forEach((item, index) => {
-        // Determine column
-        if (index === Math.ceil(checks.length / 2)) {
+        if (index === 7) {
             colX = 110;
             rowY = y;
         }
 
-        // Striped background
-        if (index % 2 === 0) {
-            doc.setFillColor(245, 245, 245);
-            doc.rect(colX, rowY, colWidth, rowHeight, 'F');
+        // Draw dotted separator lines for alignment
+        doc.setDrawColor(240, 240, 240);
+        doc.setLineWidth(0.15);
+        doc.line(colX, rowY + rowHeight - 0.5, colX + colWidth, rowY + rowHeight - 0.5);
+
+        // Label
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(60, 60, 60);
+        doc.text(item.label, colX, rowY + 3.8);
+
+        // Chips
+        const isSim = item.value === true;
+        const isNao = item.value === false;
+
+        // SIM Chip
+        doc.setLineWidth(0);
+        if (isSim) {
+            doc.setFillColor(230, 244, 234); // Light green bg
+            doc.roundedRect(colX + 63, rowY + 0.8, 11, 4, 0.8, 0.8, 'F');
+            doc.setTextColor(19, 115, 51); // Dark green text
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6.5);
+            doc.text('SIM', colX + 68.5, rowY + 3.6, { align: 'center' });
+        } else {
+            doc.setFillColor(241, 243, 244); // Light gray bg
+            doc.roundedRect(colX + 63, rowY + 0.8, 11, 4, 0.8, 0.8, 'F');
+            doc.setTextColor(154, 160, 166); // Gray text
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.text('SIM', colX + 68.5, rowY + 3.6, { align: 'center' });
         }
 
-        doc.text(item.k, colX + 2, rowY + 4);
-
-        // Checkboxes
-        // SIM
-        doc.rect(colX + 50, rowY + 2, 3, 3);
-        if (item.v === true) {
-            doc.setFontSize(6);
-            doc.text('X', colX + 50.5, rowY + 4.5);
-            doc.setFontSize(8);
+        // NÃO Chip
+        if (isNao) {
+            doc.setFillColor(252, 232, 230); // Light red bg
+            doc.roundedRect(colX + 76, rowY + 0.8, 14, 4, 0.8, 0.8, 'F');
+            doc.setTextColor(197, 34, 31); // Dark red text
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6.5);
+            doc.text('NÃO ✓', colX + 83, rowY + 3.6, { align: 'center' });
+        } else {
+            doc.setFillColor(241, 243, 244); // Light gray bg
+            doc.roundedRect(colX + 76, rowY + 0.8, 14, 4, 0.8, 0.8, 'F');
+            doc.setTextColor(154, 160, 166); // Gray text
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.text('NÃO', colX + 83, rowY + 3.6, { align: 'center' });
         }
-        doc.text('SIM', colX + 54, rowY + 4.5);
-
-        // NAO
-        doc.rect(colX + 70, rowY + 2, 3, 3);
-        if (item.v === false) {
-            doc.setFontSize(6);
-            doc.text('X', colX + 70.5, rowY + 4.5);
-            doc.setFontSize(8);
-        }
-        doc.text('NÃO', colX + 74, rowY + 4.5);
 
         rowY += rowHeight;
     });
 
-    y = rowY + 5; // Move cursor below checklist
+    y = rowY + 6;
 
-    // --- DEVICE DETAILS ---
-    drawField('IMEI:', order.device.imei, 10, y + 4, 80);
-
-    // Password Field (Pattern removed)
-    doc.text('Senha de desbloqueio:', 130, y);
-    doc.line(130, y + 5, 190, y + 5);
-    doc.setFontSize(10);
-    doc.text(order.device.password || '', 135, y + 4);
-
-    y += 10;
-    drawField('Modelo:', `${order.device.brand} ${order.device.model} ${order.device.color}`, 10, y + 4, 80);
-
-    y += 15;
-
-    // --- DEVICE OUTLINES ---
-    // Simple representation
-    const drawPhoneOutline = (x: number, label: string) => {
-        doc.roundedRect(x, y, 20, 38, 2, 2); // Body
-        if (label === 'Frente') {
-            doc.rect(x + 2, y + 3, 16, 28); // Screen
-            doc.circle(x + 10, y + 35, 1.5); // Home
-            doc.rect(x + 8, y + 1, 4, 0.5); // Earpiece
-        } else if (label === 'Traseira') {
-            doc.circle(x + 5, y + 5, 2); // Camera
-            doc.roundedRect(x + 3, y + 10, 14, 2, 1, 1); // Logo area
-        }
-        doc.setFontSize(8);
-        doc.text(label, x + 5, y + 42);
-    };
-
-    const drawSideOutline = (x: number, label: string) => {
-        doc.roundedRect(x, y, 4, 38, 1, 1);
-        // Buttons
-        doc.rect(x - 0.5, y + 5, 0.5, 3, 'F');
-        doc.rect(x - 0.5, y + 12, 0.5, 3, 'F');
-        doc.setFontSize(8);
-        doc.text(label, x - 2, y + 42);
-    };
-
-    drawPhoneOutline(30, 'Frente');
-    drawPhoneOutline(60, 'Traseira');
-    drawSideOutline(95, 'Lateral 1');
-    drawSideOutline(115, 'Lateral 2'); // Spaced out
-
-    // Simple outlines for Top/Bottom as horizontal bars
-    doc.roundedRect(140, y + 10, 35, 4, 1, 1);
-    doc.text('Superior', 150, y + 18);
-
-    doc.roundedRect(140, y + 25, 35, 4, 1, 1);
-    doc.text('Inferior', 150, y + 33);
-
-    y += 50;
-
-    // --- OBSERVATIONS ---
-    const lineGap = 7;
+    // --- APARÊNCIA FÍSICA ---
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('Itens / Peças Adicionadas no serviço:', 10, y);
-    y += 2;
-    doc.setFont('helvetica', 'normal');
-    doc.line(10, y + lineGap, 200, y + lineGap);
-    doc.text(order.items || '', 12, y + lineGap - 1);
-    y += lineGap;
-    doc.line(10, y + lineGap, 200, y + lineGap);
-    y += lineGap + 5;
+    doc.setTextColor(...textGray);
+    doc.text('APARÊNCIA FÍSICA', 10, y);
+    y += 4;
 
+    const drawPhoneOutline = (x: number, label: string) => {
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(x, y, 16, 28, 1.5, 1.5); // Body
+        if (label === 'Frente') {
+            doc.rect(x + 1.5, y + 2.5, 13, 21); // Screen
+            doc.circle(x + 8, y + 25.5, 1.2); // Home button
+            doc.rect(x + 6, y + 1, 4, 0.4); // Earpiece
+        } else if (label === 'Traseira') {
+            doc.circle(x + 4, y + 4, 1.5); // Camera
+            doc.roundedRect(x + 2, y + 8, 12, 1.5, 0.8, 0.8); // Camera/Logo block
+        } else if (label === 'Lateral 1' || label === 'Lateral 2') {
+            doc.roundedRect(x, y, 3, 28, 0.8, 0.8); // Side view
+            doc.rect(x - 0.3, y + 4, 0.3, 2, 'F');
+            doc.rect(x - 0.3, y + 8, 0.3, 2, 'F');
+        }
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(120, 120, 120);
+        doc.text(label, x + 8, y + 32, { align: 'center' });
+    };
+
+    drawPhoneOutline(15, 'Frente');
+    drawPhoneOutline(38, 'Traseira');
+    drawPhoneOutline(61, 'Lateral 1');
+    drawPhoneOutline(75, 'Lateral 2');
+
+    // Observation fields for Physical Appearance
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('Serviços a realizar / Problema relatado:', 10, y);
-    y += 2;
+    doc.setTextColor(120, 120, 120);
+    doc.text('Parte superior', 110, y + 3);
+    doc.setFillColor(250, 250, 250);
+    doc.setDrawColor(230, 230, 230);
+    doc.roundedRect(110, y + 5, 90, 8, 0.8, 0.8, 'FD');
+
+    doc.text('Parte inferior', 110, y + 18);
+    doc.roundedRect(110, y + 20, 90, 8, 0.8, 0.8, 'FD');
+
+    y += 37;
+
+    // --- ITENS / PEÇAS ADICIONADAS ---
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textGray);
+    doc.text('ITENS / PEÇAS ADICIONADAS', 10, y);
+    y += 4;
+
+    // Table Header
+    doc.setFillColor(245, 245, 245);
+    doc.rect(10, y, 190, 6, 'F');
+    doc.setDrawColor(230, 230, 230);
+    doc.line(10, y, 200, y);
+    doc.line(10, y + 6, 200, y + 6);
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100, 100, 100);
+    doc.text('QTD', 12, y + 4.2);
+    doc.text('DESCRIÇÃO', 25, y + 4.2);
+    doc.text('VALOR UNIT.', 170, y + 4.2, { align: 'right' });
+    doc.text('TOTAL', 200, y + 4.2, { align: 'right' });
+
+    y += 6;
+
+    // Dynamic Items Parsing
+    const parseItems = (itemsStr: string) => {
+        if (!itemsStr) return [];
+        const lines = itemsStr.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        return lines.map(line => {
+            const match = line.match(/^(?:(\d+x?)\s+)?(.*?)(?:\s*-\s*R\$\s*([\d.,]+))?$/i);
+            if (match) {
+                let qty = match[1] || '1';
+                if (!qty.endsWith('x')) qty += 'x';
+                const desc = match[2].trim();
+                const unitValNum = parseFloat((match[3] || '0').replace('.', '').replace(',', '.'));
+                const qtyNum = parseInt(qty.replace('x', '')) || 1;
+                const totalValNum = unitValNum * qtyNum;
+                
+                const formatBRL = (val: number) => {
+                    return 'R$ ' + val.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                };
+
+                return {
+                    qty,
+                    desc,
+                    unitVal: formatBRL(unitValNum),
+                    totalVal: formatBRL(totalValNum)
+                };
+            }
+            return {
+                qty: '1x',
+                desc: line,
+                unitVal: '-',
+                totalVal: '-'
+            };
+        });
+    };
+
+    const parsedItems = parseItems(order.items || '');
     doc.setFont('helvetica', 'normal');
-    doc.line(10, y + lineGap, 200, y + lineGap);
+    doc.setFontSize(8.5);
+    doc.setTextColor(...textDark);
+
+    if (parsedItems.length === 0) {
+        doc.text('-', 12, y + 4.5);
+        doc.text('Nenhuma peça ou item adicionado.', 25, y + 4.5);
+        doc.text('-', 170, y + 4.5, { align: 'right' });
+        doc.text('-', 200, y + 4.5, { align: 'right' });
+        y += 6;
+    } else {
+        parsedItems.forEach(item => {
+            doc.text(item.qty, 12, y + 4.5);
+            doc.text(item.desc, 25, y + 4.5);
+            doc.setTextColor(19, 115, 51); // highlight item prices in green
+            doc.text(item.unitVal, 170, y + 4.5, { align: 'right' });
+            doc.text(item.totalVal, 200, y + 4.5, { align: 'right' });
+            doc.setTextColor(...textDark);
+            
+            y += 6;
+            doc.setDrawColor(245, 245, 245);
+            doc.line(10, y, 200, y);
+        });
+    }
+
+    // Total Row
+    const formattedTotal = 'R$ ' + (order.priceTotal || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    doc.setFillColor(250, 250, 250);
+    doc.rect(10, y, 190, 8, 'F');
+    doc.setDrawColor(235, 235, 235);
+    doc.line(10, y + 8, 200, y + 8);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100, 100, 100);
+    doc.text('TOTAL', 160, y + 5, { align: 'right' });
+
+    doc.setFontSize(10);
+    doc.setTextColor(...textDark);
+    doc.text(formattedTotal, 200, y + 5.5, { align: 'right' });
+
+    y += 13;
+
+    // --- DEFEITO / SERVIÇO A REALIZAR ---
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textGray);
+    doc.text('DEFEITO / SERVIÇO A REALIZAR', 10, y);
+    y += 4;
+
+    doc.setFillColor(252, 252, 252);
+    doc.setDrawColor(230, 230, 230);
+    doc.roundedRect(10, y, 190, 12, 1, 1, 'FD');
+
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textDark);
     const serviceText = order.services ? `Serviços: ${order.services}` : '';
     const problemText = order.problemReported ? `Defeito: ${order.problemReported}` : '';
-    doc.text(`${serviceText} ${problemText}`, 12, y + lineGap - 1);
-    y += lineGap;
-    doc.line(10, y + lineGap, 200, y + lineGap);
+    const combinedDescText = [serviceText, problemText].filter(Boolean).join(' | ') || 'Nenhum detalhe informado.';
+    doc.text(combinedDescText, 13, y + 7.5);
 
-    y += 15;
+    y += 18;
 
-    // --- WARRANTY / FOOTER ---
-    doc.setFillColor(230, 230, 230);
-    doc.rect(10, y, 190, 20, 'F');
+    // --- WARRANTY TERMS (Gold Left Border #D4A017) ---
+    doc.setFillColor(250, 250, 250);
+    doc.rect(10, y, 190, 22, 'F');
+    doc.setFillColor(...goldColor);
+    doc.rect(10, y, 1.2, 22, 'F'); // Gold Left Border
+
     doc.setFontSize(7);
-    doc.setTextColor(50);
+    doc.setTextColor(80, 80, 80);
+    doc.setFont('helvetica', 'normal');
+
     const terms = [
-        'A garantia do serviço executado é de 90 dias, a partir da data de entrega.',
-        'A garantia NÃO cobre danos causados por quedas, líquidos, ou mau uso, nem aparelho aberto por terceiros.',
-        'Em caso de transformação/troca de carcaça: o NFC pode ficar inativo.',
-        'Ao assinar, o cliente concorda com os serviços listados e valores combinados.'
+        '• A garantia do serviço executado é de 90 dias, a partir da data de entrega.',
+        '• A garantia NÃO cobre danos causados por quedas, líquidos, ou mau uso, nem aparelho aberto por terceiros.',
+        '• Em caso de transformação/troca de carcaça: o NFC pode ficar inativo.',
+        '• Ao assinar, o cliente concorda com os serviços listados e valores combinados.'
     ];
-    let termY = y + 5;
+
+    let termY = y + 4.5;
     terms.forEach(t => {
-        doc.text(t, 15, termY);
-        termY += 4;
+        // Highlight critical terms inside clauses
+        if (t.includes('90 dias')) {
+            doc.setFont('helvetica', 'bold');
+        }
+        doc.text(t, 14, termY);
+        doc.setFont('helvetica', 'normal');
+        termY += 4.2;
     });
 
-    y += 30;
+    y += 33;
 
     // Signatures
-    doc.setDrawColor(0);
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.25);
     doc.line(10, y, 90, y);
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 100, 100);
     doc.text('Assinatura do Cliente', 10, y + 4);
 
-    doc.line(110, y, 190, y);
-    doc.text('Data: ___/___/___', 110, y + 4); // Date placeholder
+    doc.line(110, y, 200, y);
+    doc.text('Assinatura do Técnico / Data: ___/___/___', 110, y + 4);
+
+    // --- DARK FOOTER (#111111) ---
+    const footerY = 283;
+    doc.setFillColor(...primaryDark);
+    doc.rect(10, footerY, 190, 8, 'F');
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+
+    const part1 = "King Comércio e Serviços de Eletrônicos LTDA | CNPJ: ";
+    const part2 = "52.174.512/0001-78";
+    const part3 = " | Rua Dias D'Ávila, 34 - Barra, Salvador/BA | (71) 9884-303575";
+
+    const w1 = doc.getTextWidth(part1);
+    const w2 = doc.getTextWidth(part2);
+    const w3 = doc.getTextWidth(part3);
+    const totalW = w1 + w2 + w3;
+
+    let startX = 105 - (totalW / 2);
+
+    doc.setTextColor(255, 255, 255);
+    doc.text(part1, startX, footerY + 5);
+    startX += w1;
+
+    doc.setTextColor(...goldColor); // Highlight CNPJ in Gold
+    doc.setFont('helvetica', 'bold');
+    doc.text(part2, startX, footerY + 5);
+    startX += w2;
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'normal');
+    doc.text(part3, startX, footerY + 5);
 
     doc.save(`OS_${order.osNumber.replace(/[^a-zA-Z0-9]/g, '')}.pdf`);
 };
