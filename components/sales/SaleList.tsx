@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { salesService } from '../../services/salesService';
 import { Venda } from '../../types';
+import { generateSalePDF } from '../../services/pdfService';
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | '30days' | 'year' | 'custom';
 
@@ -277,6 +278,13 @@ const SaleList: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={() => generateSalePDF(sale)}
+                                                    className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all flex items-center justify-center"
+                                                    title="Baixar Recibo PDF"
+                                                >
+                                                    <span className="material-symbols-outlined text-[20px]">download</span>
+                                                </button>
                                                 <a
                                                     href={`#/vendas?edit=${sale.id}`}
                                                     target="_blank"
