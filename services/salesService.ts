@@ -10,11 +10,21 @@ export const salesService = {
             .select('*, itens:vendas_itens(*), vendedor:vendedores(nome)')
             .order('created_at', { ascending: false });
 
+        // Calculate timezone offset string (e.g., -03:00) to align client-side queries with UTC databases
+        const offset = (() => {
+            const tzOffset = new Date().getTimezoneOffset();
+            const absOffset = Math.abs(tzOffset);
+            const hours = Math.floor(absOffset / 60).toString().padStart(2, '0');
+            const minutes = (absOffset % 60).toString().padStart(2, '0');
+            const sign = tzOffset <= 0 ? '+' : '-';
+            return `${sign}${hours}:${minutes}`;
+        })();
+
         if (startDate) {
-            query = query.gte('created_at', startDate);
+            query = query.gte('created_at', `${startDate}T00:00:00${offset}`);
         }
         if (endDate) {
-            query = query.lte('created_at', endDate + 'T23:59:59');
+            query = query.lte('created_at', `${endDate}T23:59:59${offset}`);
         }
 
         const { data, error } = await query;

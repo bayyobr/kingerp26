@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { salesService } from '../../services/salesService';
-import { Venda } from '../../types';
-import { generateSalePDF } from '../../services/pdfService';
+import { Venda, Vendedor } from '../../types';
+import { generateSalePDF, generateSalesReportPDF } from '../../services/pdfService';
+import { vendedorService } from '../../services/vendedorService';
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | '30days' | 'year' | 'custom';
 
@@ -10,6 +11,14 @@ const SaleList: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<string>('all');
     const [search, setSearch] = useState<string>('');
+    const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+    const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
+    const [showSellerFilter, setShowSellerFilter] = useState<boolean>(false);
+    const [selectedSaleIds, setSelectedSaleIds] = useState<string[]>([]);
+    const [bulkDeleteModal, setBulkDeleteModal] = useState<{ isOpen: boolean; returnStock: boolean }>({
+        isOpen: false,
+        returnStock: true
+    });
 
     // Date Filter State (Dashboard Style)
     const [preset, setPreset] = useState<DatePreset>('month');
@@ -23,6 +32,19 @@ const SaleList: React.FC = () => {
     useEffect(() => {
         loadSales();
     }, [startDate, endDate]);
+
+    useEffect(() => {
+        loadVendedores();
+    }, []);
+
+    const loadVendedores = async () => {
+        try {
+            const list = await vendedorService.getAll();
+            setVendedores(list);
+        } catch (error) {
+            console.error('Error loading vendedores:', error);
+        }
+    };
 
     const handlePresetChange = (newPreset: DatePreset) => {
         setPreset(newPreset);
@@ -71,6 +93,9 @@ const SaleList: React.FC = () => {
     const filteredSales = sales.filter(sale => {
         const matchesStatus = filter === 'all' || sale.status === filter;
         
+        // Filter by selected sellers (if any selected)
+        const matchesSeller = selectedSellers.length === 0 || selectedSellers.includes(sale.vendedor_id);
+        
         const searchLower = search.toLowerCase();
         const matchesSearch = 
             (sale.numero_venda?.toLowerCase() || '').includes(searchLower) ||
@@ -78,7 +103,7 @@ const SaleList: React.FC = () => {
             (sale.vendedor?.nome?.toLowerCase() || '').includes(searchLower) ||
             (sale.forma_pagamento?.toLowerCase() || '').includes(searchLower);
 
-        return matchesStatus && matchesSearch;
+        return matchesStatus && matchesSeller && matchesSearch;
     });
 
     const getStatusColor = (status: string) => {
@@ -122,6 +147,30 @@ const SaleList: React.FC = () => {
         }
     };
 
+    const handleBulkDelete = async () => {
+        if (selectedSaleIds.length === 0) return;
+
+        try {
+            setLoading(true);
+            for (const id of selectedSaleIds) {
+                await salesService.deleteSale(id, { returnStock: bulkDeleteModal.returnStock });
+            }
+            setBulkDeleteModal({ isOpen: false, returnStock: true });
+            setSelectedSaleIds([]);
+            await loadSales();
+        } catch (error) {
+            console.error('Error deleting sales:', error);
+            alert('Erro ao excluir algumas vendas.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleExportSelected = () => {
+        const salesToExport = sales.filter(s => selectedSaleIds.includes(s.id!));
+        generateSalesReportPDF(salesToExport, startDate, endDate);
+    };
+
     const handleRefund = async () => {
         if (!refundModal.saleId) return;
 
@@ -154,6 +203,79 @@ const SaleList: React.FC = () => {
                     <p className="text-slate-400 mt-1">Gerenciamento de vendas e pedidos do sistema.</p>
                 </div>
                 <div className="flex flex-col md:flex-row gap-3 bg-surface-dark p-2 rounded-xl border border-slate-800">
+                    {/* Multi-select de Vendedores */}
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => setShowSellerFilter(!showSellerFilter)}
+                            className="bg-slate-800 text-white text-sm rounded-lg px-3 py-2 border-none focus:ring-2 focus:ring-primary outline-none min-w-[160px] flex items-center justify-between gap-2 h-full hover:bg-slate-700 transition-colors"
+                        >
+                            <span className="truncate">
+                                {selectedSellers.length === 0 
+                                    ? 'Todos os Vendedores' 
+                                    : `${selectedSellers.length} Vendedor(es)`}
+                            </span>
+                            <span className="material-symbols-outlined text-[16px] text-slate-400">
+                                {showSellerFilter ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+                            </span>
+                        </button>
+
+                        {showSellerFilter && (
+                            <>
+                                <div 
+                                    className="fixed inset-0 z-10" 
+                                    onClick={() => setShowSellerFilter(false)} 
+                                />
+                                <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-20 py-2 animate-fadeIn max-h-[300px] overflow-y-auto text-left">
+                                    <div className="px-3 py-1.5 border-b border-slate-700 flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-400 uppercase">Filtrar Vendedor</span>
+                                        {selectedSellers.length > 0 && (
+                                            <button 
+                                                onClick={() => setSelectedSellers([])} 
+                                                className="text-[10px] text-blue-400 hover:text-blue-300 font-bold uppercase"
+                                            >
+                                                Limpar
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="p-1 space-y-1">
+                                        {vendedores.map(v => {
+                                            const isSelected = selectedSellers.includes(v.id);
+                                            return (
+                                                <button
+                                                    key={v.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (isSelected) {
+                                                            setSelectedSellers(selectedSellers.filter(id => id !== v.id));
+                                                        } else {
+                                                            setSelectedSellers([...selectedSellers, v.id]);
+                                                        }
+                                                    }}
+                                                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
+                                                        isSelected 
+                                                            ? 'bg-blue-600/20 text-blue-400 font-medium' 
+                                                            : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                                                    }`}
+                                                >
+                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                                        isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-600'
+                                                    }`}>
+                                                        {isSelected && <span className="material-symbols-outlined text-white text-[12px] font-bold">check</span>}
+                                                    </div>
+                                                    <span className="truncate">{v.nome}</span>
+                                                </button>
+                                            );
+                                        })}
+                                        {vendedores.length === 0 && (
+                                            <div className="text-center py-4 text-xs text-slate-500">Nenhum vendedor encontrado</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
                     <select
                         value={preset}
                         onChange={(e) => handlePresetChange(e.target.value as DatePreset)}
@@ -193,6 +315,16 @@ const SaleList: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-[18px]">refresh</span>
                         {loading ? '...' : 'Atualizar'}
+                    </button>
+
+                    <button
+                        onClick={() => generateSalesReportPDF(filteredSales, startDate, endDate)}
+                        disabled={loading || filteredSales.length === 0}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-bold text-white transition-colors disabled:opacity-50"
+                        title="Baixar Relatório em PDF para a contadora do período selecionado"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">download_for_offline</span>
+                        Exportar Contadora
                     </button>
                 </div>
             </div>
@@ -240,6 +372,31 @@ const SaleList: React.FC = () => {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-slate-800 bg-[#161b22]">
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-10 text-center">
+                                    <label className="flex items-center justify-center cursor-pointer">
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                                            filteredSales.length > 0 && selectedSaleIds.length === filteredSales.length 
+                                                ? 'bg-blue-500 border-blue-500' 
+                                                : 'border-slate-600'
+                                        }`}>
+                                            <input
+                                                type="checkbox"
+                                                className="hidden"
+                                                checked={filteredSales.length > 0 && selectedSaleIds.length === filteredSales.length}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedSaleIds(filteredSales.map(s => s.id!).filter(Boolean));
+                                                    } else {
+                                                        setSelectedSaleIds([]);
+                                                    }
+                                                }}
+                                            />
+                                            {filteredSales.length > 0 && selectedSaleIds.length === filteredSales.length && (
+                                                <span className="material-symbols-outlined text-white text-[12px] font-bold">check</span>
+                                            )}
+                                        </div>
+                                    </label>
+                                </th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nº Venda</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Data</th>
@@ -252,16 +409,39 @@ const SaleList: React.FC = () => {
                         <tbody className="divide-y divide-slate-800">
                             {filteredSales.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500 bg-[#1e242b]">
+                                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500 bg-[#1e242b]">
                                         Nenhum pedido encontrado.
                                     </td>
                                 </tr>
                             ) : (
-                                filteredSales.map((sale) => (
-                                    <tr key={sale.id || Math.random()} className="hover:bg-slate-800/50 transition-colors group">
-                                        <td className="px-6 py-4">
-                                            <span className="text-white font-bold text-sm">#{sale.numero_venda || (sale.id ? sale.id.substring(0, 8) : '---')}</span>
-                                        </td>
+                                filteredSales.map((sale) => {
+                                    const isSelected = selectedSaleIds.includes(sale.id!);
+                                    return (
+                                        <tr key={sale.id || Math.random()} className={`hover:bg-slate-800/50 transition-colors group ${isSelected ? 'bg-slate-800/30' : ''}`}>
+                                            <td className="px-6 py-4 text-center w-10">
+                                                <label className="flex items-center justify-center cursor-pointer">
+                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                                                        isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-600'
+                                                    }`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="hidden"
+                                                            checked={isSelected}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedSaleIds([...selectedSaleIds, sale.id!]);
+                                                                } else {
+                                                                    setSelectedSaleIds(selectedSaleIds.filter(id => id !== sale.id));
+                                                                }
+                                                            }}
+                                                        />
+                                                        {isSelected && <span className="material-symbols-outlined text-white text-[12px] font-bold">check</span>}
+                                                    </div>
+                                                </label>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-white font-bold text-sm">#{sale.numero_venda || (sale.id ? sale.id.substring(0, 8) : '---')}</span>
+                                            </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col">
                                                 <span className="text-white font-medium text-sm">{sale.cliente_nome || 'Consumidor Final'}</span>
@@ -340,7 +520,8 @@ const SaleList: React.FC = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ))
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -456,6 +637,85 @@ const SaleList: React.FC = () => {
                                     className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
                                 >
                                     Confirmar Reembolso
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Actions Floating Bar */}
+            {selectedSaleIds.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-[#1c2128] border border-slate-700 rounded-full px-6 py-3 shadow-2xl flex items-center gap-6 z-50 animate-bounceOnce">
+                    <span className="text-sm font-semibold text-white whitespace-nowrap">
+                        {selectedSaleIds.length} selecionado(s)
+                    </span>
+                    <div className="h-4 w-px bg-slate-700" />
+                    <div className="flex gap-3">
+                        <button
+                            type="button"
+                            onClick={handleExportSelected}
+                            className="flex items-center gap-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-full text-xs font-bold text-white transition-colors"
+                            title="Exportar itens selecionados para a contadora"
+                        >
+                            <span className="material-symbols-outlined text-[16px]">download_for_offline</span>
+                            Exportar PDF
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setBulkDeleteModal({ isOpen: true, returnStock: true })}
+                            className="flex items-center gap-2 px-4 py-1.5 bg-red-600 hover:bg-red-700 rounded-full text-xs font-bold text-white transition-colors"
+                            title="Excluir itens selecionados"
+                        >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                            Excluir
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Delete Modal */}
+            {bulkDeleteModal.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-[#1c2128] border border-slate-700 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-fadeIn">
+                        <div className="p-6">
+                            <div className="flex items-center gap-3 text-red-500 mb-4">
+                                <span className="material-symbols-outlined text-3xl">warning</span>
+                                <h3 className="text-xl font-bold text-white">Excluir Vendas em Lote</h3>
+                            </div>
+                            <p className="text-slate-400 mb-6">
+                                Tem certeza que deseja excluir as <strong>{selectedSaleIds.length}</strong> vendas selecionadas? Esta ação é irreversível.
+                            </p>
+
+                            <div className="space-y-4 mb-6">
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${bulkDeleteModal.returnStock ? 'bg-blue-500 border-blue-500' : 'border-slate-600 group-hover:border-slate-500'}`}>
+                                        <input
+                                            type="checkbox"
+                                            className="hidden"
+                                            checked={bulkDeleteModal.returnStock}
+                                            onChange={(e) => setBulkDeleteModal({ ...bulkDeleteModal, returnStock: e.target.checked })}
+                                        />
+                                        {bulkDeleteModal.returnStock && <span className="material-symbols-outlined text-white text-[16px]">check</span>}
+                                    </div>
+                                    <span className="text-sm text-slate-300">Retornar itens ao estoque</span>
+                                </label>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setBulkDeleteModal({ ...bulkDeleteModal, isOpen: false })}
+                                    className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleBulkDelete}
+                                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                                >
+                                    Confirmar Exclusão
                                 </button>
                             </div>
                         </div>

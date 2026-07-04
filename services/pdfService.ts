@@ -569,6 +569,11 @@ export const generatePDF = (order: ServiceOrder) => {
 
 const formatDate = (dateString: string) => {
     if (!dateString) return '-';
+    // If it's a date-only string like YYYY-MM-DD, format it directly to avoid timezone offsets
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
+    }
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return dateString;
     return date.toLocaleDateString('pt-BR');
@@ -734,4 +739,144 @@ export const generatePurchaseOrderPDF = (order: PurchaseOrder) => {
     doc.text('Documento gerado automaticamente pelo ERP King Celulares.', 105, 280, { align: 'center' });
 
     doc.save(`Importacao_${order.date}_${order.supplier}.pdf`);
+};
+
+export const generateSalesReportPDF = (sales: Venda[], startDate?: string, endDate?: string) => {
+    // Exclude sales paid in cash ("Dinheiro") as requested
+    const exportableSales = sales.filter(sale => sale.forma_pagamento !== 'Dinheiro');
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    let y = 10;
+
+    // Helper colors
+    const primaryDark = [17, 17, 17] as [number, number, number];
+    const accentBlue = [29, 78, 216] as [number, number, number];
+    const textDark = [30, 30, 30] as [number, number, number];
+
+    // --- HEADER PANEL ---
+    doc.setFillColor(...primaryDark);
+    doc.rect(10, y, 190, 20, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('KING CARCAÇAS', 15, y + 8);
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(200, 200, 200);
+    doc.text('Relatório de Pedidos de Venda - Contabilidade', 15, y + 14);
+
+    // Period Info
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(255, 255, 255);
+    const periodText = `Período: ${startDate ? formatDate(startDate) : 'Início'} até ${endDate ? formatDate(endDate) : 'Hoje'}`;
+    doc.text(periodText, 195, y + 12, { align: 'right' });
+
+    y += 20;
+
+    // Accent line
+    doc.setFillColor(...accentBlue);
+    doc.rect(10, y, 190, 1, 'F');
+    y += 8;
+
+    // --- TABLE DATA ---
+    const headers = [['Data', 'Nº Venda', 'Cliente', 'Vendedor', 'Descrição dos Itens (Qtd x Preço)', 'Pagamento', 'Total']];
+    
+    let grandTotal = 0;
+    let totalDiscount = 0;
+
+    const data = exportableSales.map(sale => {
+        const saleTotal = (sale.total || 0) - (sale.delivery_fee || 0);
+        grandTotal += saleTotal;
+        totalDiscount += sale.desconto || 0;
+
+        const dateStr = sale.created_at ? new Date(sale.created_at).toLocaleDateString('pt-BR') : '---';
+        const saleNum = sale.numero_venda || '---';
+        const clientName = sale.cliente_nome || 'Consumidor Final';
+        const sellerName = sale.vendedor?.nome || 'Sem vendedor';
+        
+        const itemsStr = sale.itens?.map(item => {
+            const name = item.item_nome + (item.variacao_nome ? ` (${item.variacao_nome})` : '');
+            return `${item.quantidade}x ${name} (R$ ${item.preco_unitario.toFixed(2)})`;
+        }).join('\n') || 'Sem itens';
+
+        const payment = sale.forma_pagamento || 'N/A';
+        const totalStr = `R$ ${saleTotal.toFixed(2)}`;
+
+        return [
+            dateStr,
+            saleNum,
+            clientName,
+            sellerName,
+            itemsStr,
+            payment,
+            totalStr
+        ];
+    });
+
+    autoTable(doc, {
+        startY: y,
+        head: headers,
+        body: data,
+        theme: 'striped',
+        styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+        headStyles: { fillColor: [40, 50, 60], textColor: [255, 255, 255], fontStyle: 'bold' },
+        columnStyles: {
+            0: { cellWidth: 18 }, // Data
+            1: { cellWidth: 18 }, // Nº Venda
+            2: { cellWidth: 26 }, // Cliente
+            3: { cellWidth: 26 }, // Vendedor
+            4: { cellWidth: 52 }, // Descrição dos Itens
+            5: { cellWidth: 22 }, // Pagamento
+            6: { cellWidth: 28, halign: 'right' } // Total
+        }
+    });
+
+    // @ts-ignore
+    y = doc.lastAutoTable.finalY + 10;
+
+    // Check if summaries fit in page
+    if (y > 250) {
+        doc.addPage();
+        y = 15;
+    }
+
+    // --- SUMMARY BOX ---
+    doc.setFillColor(245, 245, 245);
+    doc.rect(10, y, 190, 25, 'F');
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.2);
+    doc.line(10, y, 200, y);
+    doc.line(10, y + 25, 200, y + 25);
+
+    y += 6;
+    doc.setFontSize(9);
+    doc.setTextColor(...textDark);
+    
+    // Summary row contents
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total de Pedidos:`, 15, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${exportableSales.length}`, 45, y);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total Descontos:`, 80, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`R$ ${totalDiscount.toFixed(2)}`, 110, y);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 100, 0);
+    doc.text(`TOTAL GERAL:`, 140, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`R$ ${grandTotal.toFixed(2)}`, 170, y);
+
+    y += 8;
+    doc.setTextColor(...textDark);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'italic');
+    doc.text(`Relatório gerado em ${new Date().toLocaleString('pt-BR')} para fins de contabilidade e escrituração fiscal.`, 15, y);
+
+    doc.save(`Relatorio_Contadora_${startDate || 'inicio'}_a_${endDate || 'fim'}.pdf`);
 };
