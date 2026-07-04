@@ -176,6 +176,9 @@ export interface Venda {
   id?: string;
   numero_venda?: string;
   vendedor_id: string;
+  vendedor?: {
+    nome: string;
+  };
   cliente_nome?: string;
   cliente_telefone?: string;
   cliente_cpf?: string;

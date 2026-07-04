@@ -9,6 +9,7 @@ const SaleList: React.FC = () => {
     const [sales, setSales] = useState<Venda[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<string>('all');
+    const [search, setSearch] = useState<string>('');
 
     // Date Filter State (Dashboard Style)
     const [preset, setPreset] = useState<DatePreset>('month');
@@ -68,8 +69,16 @@ const SaleList: React.FC = () => {
     };
 
     const filteredSales = sales.filter(sale => {
-        if (filter === 'all') return true;
-        return sale.status === filter;
+        const matchesStatus = filter === 'all' || sale.status === filter;
+        
+        const searchLower = search.toLowerCase();
+        const matchesSearch = 
+            (sale.numero_venda?.toLowerCase() || '').includes(searchLower) ||
+            (sale.cliente_nome?.toLowerCase() || '').includes(searchLower) ||
+            (sale.vendedor?.nome?.toLowerCase() || '').includes(searchLower) ||
+            (sale.forma_pagamento?.toLowerCase() || '').includes(searchLower);
+
+        return matchesStatus && matchesSearch;
     });
 
     const getStatusColor = (status: string) => {
@@ -211,6 +220,20 @@ const SaleList: React.FC = () => {
                 ))}
             </div>
 
+            {/* Search Input */}
+            <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <span className="material-symbols-outlined text-[20px]">search</span>
+                </div>
+                <input
+                    type="text"
+                    className="block w-full pl-10 pr-4 py-2.5 bg-surface-dark border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all"
+                    placeholder="Buscar por nº venda, cliente, vendedor ou forma de pagamento..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                />
+            </div>
+
             {/* Table */}
             <div className="bg-surface-dark border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
@@ -242,7 +265,13 @@ const SaleList: React.FC = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col">
                                                 <span className="text-white font-medium text-sm">{sale.cliente_nome || 'Consumidor Final'}</span>
-                                                <span className="text-slate-500 text-xs">{sale.vendedor_id ? 'Vendedor Vinculado' : 'Sem vendedor'}</span>
+                                                <span className="text-slate-500 text-xs">
+                                                    {sale.vendedor?.nome 
+                                                        ? `Vendedor: ${sale.vendedor.nome}` 
+                                                        : sale.vendedor_id 
+                                                            ? 'Vendedor Vinculado' 
+                                                            : 'Sem vendedor'}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-slate-400 text-sm">

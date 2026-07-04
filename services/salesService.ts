@@ -7,7 +7,7 @@ export const salesService = {
     async getAll(startDate?: string, endDate?: string): Promise<Venda[]> {
         let query = supabase
             .from('vendas')
-            .select('*, itens:vendas_itens(*)')
+            .select('*, itens:vendas_itens(*), vendedor:vendedores(nome)')
             .order('created_at', { ascending: false });
 
         if (startDate) {
