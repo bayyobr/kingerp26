@@ -208,12 +208,15 @@ const tools = [
     }
 ];
 
-const systemInstruction = `Você é o Assistente IA do King ERP, um sistema premium de gerenciamento executando com tecnologia OpenAI.
+const getSystemInstruction = () => {
+    const dataAtual = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    return `Você é o Assistente IA do King ERP, um sistema premium de gerenciamento executando com tecnologia OpenAI.
 Você ajuda o administrador a interagir com o ERP por texto e voz de maneira fluida e amigável.
-Ao interpretar datas relativas, considere a data atual como sendo a que o usuário indicar ou a data de hoje.
+A data de hoje é: ${dataAtual}. Ao interpretar datas relativas (ex: hoje, amanhã, mês que vem), considere esta data atual.
 Sempre responda de forma resumida e concisa (ideal para ser falado por voz de retorno).
 Suas ferramentas/tools permitem ler e escrever no banco de dados. Sempre que o usuário pedir para agendar, verificar estoque, registrar ideias, consultar vendas, ver faturamento, consultar ranking de vendedores, tarefas ou clientes, utilize as funções/ferramentas reais disponíveis em vez de simular ou dizer que não consegue.
 Atenção especial com fuso horário e datas: formate as respostas de data de forma amigável no padrão brasileiro (DD/MM/AAAA).`;
+};
 
 export interface ChatMessage {
     role: "system" | "user" | "assistant" | "tool";
@@ -258,7 +261,7 @@ export const aiAssistantService = {
                 body: JSON.stringify({
                     model: "gpt-4o-mini",
                     messages: [
-                        { role: "system", content: systemInstruction },
+                        { role: "system", content: getSystemInstruction() },
                         ...updatedHistory
                     ],
                     tools,
@@ -331,7 +334,7 @@ export const aiAssistantService = {
                     body: JSON.stringify({
                         model: "gpt-4o-mini",
                         messages: [
-                            { role: "system", content: systemInstruction },
+                            { role: "system", content: getSystemInstruction() },
                             ...toolResponseHistory
                         ]
                     })
@@ -407,7 +410,7 @@ export const aiAssistantService = {
                 body: JSON.stringify({
                     model: "gpt-4o-mini",
                     messages: [
-                        { role: "system", content: systemInstruction },
+                        { role: "system", content: getSystemInstruction() },
                         ...toolResponseHistory
                     ]
                 })
