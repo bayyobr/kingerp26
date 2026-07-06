@@ -125,7 +125,7 @@ const ClientProfile: React.FC<ClientProfileProps> = ({ client, onBack }) => {
              </div>
              <div className="flex justify-between">
                <span className="text-slate-500">Cadastrado em:</span>
-               <span>{new Date(client.created_at).toLocaleDateString('pt-BR')}</span>
+               <span>{client.created_at ? new Date(client.created_at).toLocaleDateString('pt-BR') : '---'}</span>
              </div>
            </div>
         </div>

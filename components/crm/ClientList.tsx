@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Client, ClientProfileStats } from '../../types';
+import { Client, ClientProfileStats, FrequencyStatus, PurchaseHistoryItem } from '../../types';
 import { clientService } from '../../services/clientService';
+import { salesService } from '../../services/salesService';
+import { orderService } from '../../services/orderService';
 
 interface ClientListProps {
   onSelectClient: (client: Client) => void;
@@ -33,15 +35,112 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient }) => {
   const loadClients = async () => {
     try {
       const data = await clientService.getAllClients();
+      const allSales = await salesService.getAll();
+      const allOrders = await orderService.getAll();
       
-      // Calculate stats for each client for the list metrics
-      const enrichedData = await Promise.all(
-        data.map(async (cli) => {
-          const history = await clientService.getClientPurchaseHistory(cli);
-          const stats = await clientService.calculateClientStats(cli, history);
-          return { ...cli, stats };
-        })
-      );
+      const enrichedData = data.map((cli) => {
+        const hasCpf = cli.cpf && cli.cpf.trim() !== '';
+        const hasPhone = cli.telefone && cli.telefone.trim() !== '';
+        
+        // Match sales
+        const clientSales = allSales.filter(sale => {
+           if (!hasCpf && !hasPhone) return false;
+           const matchCpf = hasCpf && sale.cliente_cpf === cli.cpf;
+           const matchPhone = hasPhone && sale.cliente_telefone === cli.telefone;
+           return matchCpf || matchPhone;
+        });
+
+        // Match orders
+        const clientOrders = allOrders.filter(order => {
+           if (!hasCpf && !hasPhone) return false;
+           const matchCpf = hasCpf && order.client?.cpf === cli.cpf;
+           const matchPhone = hasPhone && order.client?.phone === cli.telefone;
+           return matchCpf || matchPhone;
+        });
+
+        const history: PurchaseHistoryItem[] = [];
+
+        clientSales.forEach(sale => {
+          history.push({
+            id: sale.id || sale.numero_venda || '',
+            type: 'PDV',
+            date: sale.created_at || new Date().toISOString(),
+            total: sale.total,
+            itemsDescription: sale.itens?.map(i => `${i.quantidade}x ${i.item_nome}`).join(', ') || 'Venda PDV',
+            status: sale.status || 'concluida'
+          });
+        });
+
+        clientOrders.forEach(order => {
+           history.push({
+             id: order.id || order.osNumber,
+             type: 'OS',
+             date: order.entryDate || new Date().toISOString(),
+             total: order.priceTotal || 0,
+             itemsDescription: `OS ${order.osNumber} - ${order.services || 'Serviço'}`,
+             status: order.status
+           });
+        });
+
+        history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        // Calculate stats
+        const completedPurchases = history.filter(h => {
+           const s = h.status?.toLowerCase();
+           return s !== 'cancelada' && s !== 'reembolsada' && s !== 'cancelado' && s !== 'reembolsado';
+        });
+        
+        const totalSpent = completedPurchases.reduce((acc, curr) => acc + curr.total, 0);
+        const orderCount = completedPurchases.length;
+        const isVip = cli.is_vip_manual || totalSpent > 1000;
+
+        let frequencyStatus: FrequencyStatus = 'Novo';
+        let avgDays: number | null = null;
+        let lastPurchaseDate: string | null = null;
+        let estimatedNextPurchaseDate: string | null = null;
+
+        if (orderCount > 0) {
+          const chronoPurchases = [...completedPurchases].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          lastPurchaseDate = chronoPurchases[chronoPurchases.length - 1].date;
+          const daysSinceLastPurchase = Math.floor((new Date().getTime() - new Date(lastPurchaseDate).getTime()) / (1000 * 3600 * 24));
+
+          if (orderCount > 1) {
+            let totalDaysBetween = 0;
+            for (let i = 1; i < chronoPurchases.length; i++) {
+              const d1 = new Date(chronoPurchases[i-1].date).getTime();
+              const d2 = new Date(chronoPurchases[i].date).getTime();
+              totalDaysBetween += (d2 - d1) / (1000 * 3600 * 24);
+            }
+            avgDays = Math.round(totalDaysBetween / (orderCount - 1));
+            
+            const nextDate = new Date(lastPurchaseDate);
+            nextDate.setDate(nextDate.getDate() + avgDays);
+            estimatedNextPurchaseDate = nextDate.toISOString();
+          }
+
+          if (daysSinceLastPurchase <= 30) {
+            frequencyStatus = 'Ativo';
+          } else if (daysSinceLastPurchase <= 90) {
+            frequencyStatus = 'Regular';
+          } else if (daysSinceLastPurchase <= 180) {
+            frequencyStatus = 'Em Risco';
+          } else {
+            frequencyStatus = 'Inativo';
+          }
+        }
+
+        const stats: ClientProfileStats = {
+          totalSpent,
+          orderCount,
+          averageDaysBetweenPurchases: avgDays,
+          frequencyStatus,
+          lastPurchaseDate,
+          estimatedNextPurchaseDate,
+          isVip
+        };
+
+        return { ...cli, stats };
+      });
 
       setClients(enrichedData);
     } catch (e) {
@@ -238,7 +337,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient }) => {
             <tbody className="text-sm">
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center p-8 text-slate-500">
+                  <td colSpan={7} className="text-center p-8 text-slate-500">
                     <p className="mb-4">Nenhum cliente encontrado nos filtros atuais.</p>
                     <button onClick={handleCreateTestClient} className="bg-blue-600/20 text-blue-400 px-4 py-2 rounded-lg hover:bg-blue-600/30">
                       Adicionar Cliente Teste
@@ -274,7 +373,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient }) => {
                       )}
                     </td>
                     <td className="p-4 text-right text-slate-400">
-                      {new Date(client.created_at).toLocaleDateString('pt-BR')}
+                      {client.created_at ? new Date(client.created_at).toLocaleDateString('pt-BR') : '---'}
                     </td>
                     <td className="p-4 text-right font-semibold text-emerald-400">
                       R$ {client.stats?.totalSpent.toFixed(2)}

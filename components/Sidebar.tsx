@@ -54,6 +54,7 @@ const Sidebar: React.FC = () => {
       ]
     },
     { path: '/integracoes', label: 'Integrações', icon: 'integration_instructions' },
+    { path: '/assistente', label: 'Assistente IA', icon: 'smart_toy' },
   ];
 
   const bottomItems = [
@@ -150,6 +151,20 @@ const Sidebar: React.FC = () => {
                         expand_more
                       </span>
                     )}
+                  </button>
+                ) : item.path === '/assistente' ? (
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent("toggle-ai-assistant"))}
+                    className={`flex flex-col md:flex-row items-center gap-1 md:gap-3 p-2 md:px-3 md:py-2.5 rounded-lg transition-all group w-[68px] md:w-full ${inactiveClass
+                      } ${isMinimized ? 'justify-center' : ''}`}
+                    title={isMinimized ? item.label : undefined}
+                  >
+                    <span className="material-symbols-outlined text-[24px] md:text-[20px] text-blue-400 group-hover:text-blue-300">
+                      {item.icon}
+                    </span>
+                    <p className={`text-[10px] md:text-sm mt-0.5 md:mt-0 ${isMinimized ? 'block md:hidden' : 'block'} font-medium truncate w-full text-center md:text-left leading-tight`}>
+                      {item.label}
+                    </p>
                   </button>
                 ) : (
                   <Link

@@ -24,6 +24,7 @@ import PlaceholderPage from './components/PlaceholderPage';
 import IntegrationsList from './components/integrations/IntegrationsList';
 import ShopeeIntegration from './components/integrations/ShopeeIntegration';
 import ShopeeCallback from './components/integrations/ShopeeCallback';
+import AIAssistantDrawer from './components/ai/AIAssistantDrawer';
 
 
 import { supabase } from './services/supabase';
@@ -152,6 +153,7 @@ const AppContent: React.FC = () => {
   return (
     <div className="flex flex-col-reverse md:flex-row h-[100dvh] w-full overflow-hidden">
       <Sidebar />
+      <AIAssistantDrawer />
       <main className="flex-1 h-full overflow-y-auto bg-background-light dark:bg-background-dark">
         <Routes>
           {/* Redirect to dashboard if logged in and trying to access auth pages */}

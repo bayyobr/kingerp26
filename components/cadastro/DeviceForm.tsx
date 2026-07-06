@@ -81,7 +81,7 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ onClose, deviceToEdit }) => {
         // Basic Validations
         if (!formData.imei || formData.imei.length < 15) return alert('IMEI inválido (mínimo 15 dígitos)');
         if (!formData.modelo) return alert('Informe o modelo');
-        if (!formData.preco_custo || !formData.preco_venda) return alert('Informe os preços');
+        if (formData.preco_custo === undefined || formData.preco_custo === null || !formData.preco_venda) return alert('Informe os preços');
         if (Number(formData.preco_venda) < Number(formData.preco_custo)) {
             if (!confirm('Atenção: Preço de venda menor que o custo. Continuar?')) return;
         }
@@ -400,10 +400,15 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ onClose, deviceToEdit }) => {
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">R$</span>
                                     <input
                                         type="text"
-                                        value={formData.preco_custo ? formatCurrency(formData.preco_custo) : ''}
+                                        value={formData.preco_custo !== undefined && formData.preco_custo !== null ? formatCurrency(formData.preco_custo) : ''}
                                         onChange={e => {
+                                            const isNegative = e.target.value.trim().startsWith('-');
                                             const raw = e.target.value.replace(/\D/g, '');
-                                            handleChange('preco_custo', raw ? Number(raw) / 100 : 0);
+                                            let numVal = raw ? Number(raw) / 100 : 0;
+                                            if (isNegative) {
+                                                numVal = -numVal;
+                                            }
+                                            handleChange('preco_custo', numVal);
                                         }}
                                         onFocus={e => e.target.select()}
                                         placeholder="R$ 0,00"
