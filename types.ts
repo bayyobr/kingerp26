@@ -1,4 +1,3 @@
-
 export enum OSStatus {
   ABERTO = 'Aberto',
   EM_ANALISE = 'Em Análise',
@@ -201,6 +200,7 @@ export interface PaymentDetail {
   amount: number;
   installments?: number; // 1X to 12X
   fee?: number; // Juros/Taxa added to amount
+  observacoes_venda?: string;
 }
 
 export interface StockMovement {

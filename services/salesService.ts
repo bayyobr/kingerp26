@@ -30,7 +30,10 @@ export const salesService = {
         const { data, error } = await query;
 
         if (error) throw error;
-        return data;
+        return (data || []).map((v: any) => ({
+            ...v,
+            observacoes: v.payment_details?.[0]?.observacoes_venda || ''
+        })) as Venda[];
     },
 
     // Create a new sale
@@ -57,7 +60,6 @@ export const salesService = {
                 sale_type: venda.sale_type,
                 delivery_fee: venda.delivery_fee,
                 status: 'Concluída',
-                observacoes: venda.observacoes,
                 created_at: venda.created_at || new Date().toISOString()
             })
             .select()
@@ -139,7 +141,10 @@ export const salesService = {
             }
         }
 
-        return saleData;
+        return {
+            ...saleData,
+            observacoes: saleData.payment_details?.[0]?.observacoes_venda || ''
+        };
     },
 
     async deductStock(itens: VendaItem[]) {
@@ -228,7 +233,10 @@ export const salesService = {
             .single();
 
         return {
-            venda: vendaData as Venda,
+            venda: {
+                ...vendaData,
+                observacoes: (vendaData as any).payment_details?.[0]?.observacoes_venda || ''
+            } as Venda,
             vendedor: vendedorData as Vendedor
         };
     },

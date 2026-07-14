@@ -188,7 +188,7 @@ const PDV: React.FC = () => {
                         setDeliveryFee(venda.delivery_fee || 0);
                         setPayments(venda.payment_details || []);
                         setCart(venda.items || []);
-                        setObservacoes(venda.observacoes || '');
+                        setObservacoes(venda.payment_details?.[0]?.observacoes_venda || '');
                     }
                 } catch (err) {
                     console.error('Erro ao carregar venda para edição:', err);
@@ -429,7 +429,7 @@ const PDV: React.FC = () => {
                 desconto: discount,
                 total: totalWithFees,
                 forma_pagamento: payments.length > 1 ? 'Múltiplo' : payments[0].method as any,
-                payment_details: payments,
+                payment_details: payments.map((p, idx) => idx === 0 ? { ...p, observacoes_venda: observacoes } : p),
                 sale_type: saleType,
                 delivery_fee: saleType === 'Entrega' ? deliveryFee : 0,
                 status: 'Concluída',
