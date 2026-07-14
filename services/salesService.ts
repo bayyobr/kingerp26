@@ -57,6 +57,7 @@ export const salesService = {
                 sale_type: venda.sale_type,
                 delivery_fee: venda.delivery_fee,
                 status: 'Concluída',
+                observacoes: venda.observacoes,
                 created_at: venda.created_at || new Date().toISOString()
             })
             .select()

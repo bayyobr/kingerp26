@@ -193,6 +193,7 @@ export interface Venda {
   payment_details?: PaymentDetail[];
   sale_type?: 'Retirada' | 'Entrega';
   delivery_fee?: number;
+  observacoes?: string;
 }
 
 export interface PaymentDetail {

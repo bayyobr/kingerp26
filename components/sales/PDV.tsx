@@ -51,6 +51,7 @@ const PDV: React.FC = () => {
     };
 
     const [saleDate, setSaleDate] = useState(getLocalDateString(new Date()));
+    const [observacoes, setObservacoes] = useState('');
     const SHOPEE_SELLER_ID = '6bfdcaa7-962b-4ba8-a23b-0fdeacfefaba';
 
     const getTimezoneOffsetString = () => {
@@ -142,6 +143,7 @@ const PDV: React.FC = () => {
                 if (draft.saleType) setSaleType(draft.saleType);
                 if (draft.deliveryFee) setDeliveryFee(draft.deliveryFee);
                 if (draft.saleDate) setSaleDate(draft.saleDate);
+                if (draft.observacoes) setObservacoes(draft.observacoes);
             } catch (e) {
                 console.error('Erro ao carregar rascunho do PDV', e);
             }
@@ -149,14 +151,14 @@ const PDV: React.FC = () => {
     };
 
     useEffect(() => {
-        if (cart.length > 0 || clientName || saleDate !== new Date().toISOString().split('T')[0]) {
+        if (cart.length > 0 || clientName || saleDate !== new Date().toISOString().split('T')[0] || observacoes) {
             const draft = {
                 cart, clientName, clientPhone, clientCpf,
-                discount, selectedSellerId, saleType, deliveryFee, saleDate
+                discount, selectedSellerId, saleType, deliveryFee, saleDate, observacoes
             };
             localStorage.setItem('pdv_draft', JSON.stringify(draft));
         }
-    }, [cart, clientName, clientPhone, clientCpf, discount, selectedSellerId, saleType, deliveryFee, saleDate]);
+    }, [cart, clientName, clientPhone, clientCpf, discount, selectedSellerId, saleType, deliveryFee, saleDate, observacoes]);
 
     const clearPDVDraft = () => {
         localStorage.removeItem('pdv_draft');
@@ -186,6 +188,7 @@ const PDV: React.FC = () => {
                         setDeliveryFee(venda.delivery_fee || 0);
                         setPayments(venda.payment_details || []);
                         setCart(venda.items || []);
+                        setObservacoes(venda.observacoes || '');
                     }
                 } catch (err) {
                     console.error('Erro ao carregar venda para edição:', err);
@@ -430,6 +433,7 @@ const PDV: React.FC = () => {
                 sale_type: saleType,
                 delivery_fee: saleType === 'Entrega' ? deliveryFee : 0,
                 status: 'Concluída',
+                observacoes: observacoes,
                 created_at: `${saleDate}T${new Date().toLocaleTimeString('sv-SE')}${getTimezoneOffsetString()}`
             };
 
@@ -455,6 +459,7 @@ const PDV: React.FC = () => {
             setClientPhone('');
             setClientCpf('');
             setDiscount(0);
+            setObservacoes('');
             setCurrentMethod('');
             const sel = sellers.find(s => s.id === selectedSellerId);
             const isShopeeSel = selectedSellerId === SHOPEE_SELLER_ID || (sel && sel.nome.toLowerCase().includes('shopee'));
@@ -709,6 +714,15 @@ const PDV: React.FC = () => {
                                 onChange={handlePhoneChange}
                                 maxLength={16}
                                 className="bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg p-2 text-sm outline-none text-slate-700 dark:text-white"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1 mt-1">
+                            <textarea
+                                placeholder="Observação da Venda (Opcional)"
+                                value={observacoes}
+                                onChange={e => setObservacoes(e.target.value)}
+                                rows={2}
+                                className="w-full bg-slate-50 dark:bg-surface-darker border border-slate-200 dark:border-border-dark rounded-lg p-2 text-sm outline-none text-slate-700 dark:text-white resize-none placeholder-slate-400 focus:ring-1 focus:ring-primary/50 focus:border-primary"
                             />
                         </div>
                     </div>

@@ -128,7 +128,7 @@ export const generateDeviceTermPDF = (venda: Venda, item: Aparelho, vendedor?: V
     drawField('Desconto:', discountText, margin, y, 90);
 
     // 4. Payment Method
-    let paymentMethodText = venda.forma_pagamento;
+    let paymentMethodText: string = venda.forma_pagamento;
     if (venda.forma_pagamento === 'Múltiplo' && venda.payment_details && venda.payment_details.length > 0) {
         // Show unique methods joined by ' e '
         const methods = [...new Set(venda.payment_details.map(p => p.method))];
@@ -157,7 +157,18 @@ export const generateDeviceTermPDF = (venda: Venda, item: Aparelho, vendedor?: V
         doc.text(`Itens adicionais: ${itemsList}`, margin, y);
     }
 
-    y += 15;
+    if (venda.observacoes) {
+        y += 8;
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Observações:', margin, y);
+        doc.setFont('helvetica', 'normal');
+        const splitObs = doc.splitTextToSize(venda.observacoes, 150);
+        doc.text(splitObs, margin + 24, y);
+        y += Math.max(8, splitObs.length * 4) + 2;
+    } else {
+        y += 12;
+    }
 
 
     // --- WARRANTY SECTION ---

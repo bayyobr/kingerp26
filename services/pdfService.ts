@@ -103,6 +103,18 @@ export const generateSalePDF = (sale: Venda) => {
         y += 5;
     });
 
+    if (sale.observacoes) {
+        y += 5;
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Observações:', 15, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        const splitObs = doc.splitTextToSize(sale.observacoes, 180);
+        doc.text(splitObs, 15, y);
+        y += splitObs.length * 4;
+    }
+
     // --- FOOTER ---
     y += 20;
     doc.setFontSize(8);
